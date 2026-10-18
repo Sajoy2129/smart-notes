@@ -1,3 +1,4 @@
+import ai
 import db
 
 
@@ -88,3 +89,57 @@ def test_delete_needs_post(client):
 
 def test_delete_missing_note_returns_404(client):
     assert client.post("/note/999/delete").status_code == 404
+
+
+FAKE_ANALYSIS = {
+    "summary": "Priya will send a colour sample.\nTom books scaffolding.",
+    "action_items": [
+        {"task": "Send colour sample", "owner": "Priya", "due_date": "next Friday",
+         "due_date_iso": "2026-10-23"},
+    ],
+    "tags": ["painting", "client"],
+}
+
+
+def test_saving_stores_ai_results(client, db_path, monkeypatch):
+    calls = []
+
+    def fake_analyze(title, body, created_at):
+        calls.append((title, body))
+        return FAKE_ANALYSIS
+
+    monkeypatch.setattr(ai, "analyze_note", fake_analyze)
+
+    client.post("/new", data={"title": "Site visit", "body": "Priya to send sample."})
+
+    note = db.get_note(db_path, 1)
+    assert calls == [("Site visit", "Priya to send sample.")]
+    assert note["summary"] == FAKE_ANALYSIS["summary"]
+    assert note["action_items"] == FAKE_ANALYSIS["action_items"]
+    assert note["tags"] == ["painting", "client"]
+
+
+def test_ai_results_show_on_pages(client, monkeypatch):
+    monkeypatch.setattr(ai, "analyze_note", lambda *args: FAKE_ANALYSIS)
+    client.post("/new", data={"title": "Site visit", "body": "Priya to send sample."})
+
+    home = client.get("/").data
+    view = client.get("/note/1").data
+
+    assert b"Priya will send a colour sample." in home
+    assert b"Tom books scaffolding." not in home  # home shows only the first line
+    assert b"Send colour sample" in view
+    assert b"Priya" in view
+    assert b"AI summary not available" not in view
+
+
+def test_note_still_saved_when_api_fails(client, db_path, monkeypatch):
+    monkeypatch.setattr(ai, "analyze_note", lambda *args: None)
+
+    response = client.post("/new", data={"title": "Call", "body": "Rang."})
+
+    assert response.status_code == 302
+    note = db.get_note(db_path, 1)
+    assert note["body"] == "Rang."
+    assert note["summary"] is None
+    assert b"AI summary not available" in client.get("/note/1").data

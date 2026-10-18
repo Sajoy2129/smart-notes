@@ -7,6 +7,7 @@ from datetime import datetime
 
 from flask import Flask, abort, redirect, render_template, request, url_for
 
+import ai
 import db
 
 
@@ -38,7 +39,16 @@ def create_app(db_path=db.DEFAULT_DB_PATH):
             error = "Please fill in both the title and the note."
             return render_template("new.html", title=title, body=body, error=error), 400
 
-        note_id = db.create_note(app.config["DATABASE"], title, body)
+        # Save first, so the note is kept even if the AI step fails.
+        db_path = app.config["DATABASE"]
+        note_id = db.create_note(db_path, title, body)
+        note = db.get_note(db_path, note_id)
+
+        analysis = ai.analyze_note(title, body, note["created_at"])
+        if analysis is not None:
+            db.save_analysis(
+                db_path, note_id, analysis["summary"], analysis["action_items"], analysis["tags"]
+            )
         return redirect(url_for("view_note", note_id=note_id))
 
     @app.route("/note/<int:note_id>")

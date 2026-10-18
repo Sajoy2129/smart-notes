@@ -57,3 +57,15 @@ def test_delete_note(db_path):
 
 def test_delete_missing_note_returns_false(db_path):
     assert db.delete_note(db_path, 999) is False
+
+
+def test_save_analysis_updates_note(db_path):
+    note_id = db.create_note(db_path, "Call", "Rang the client.")
+    items = [{"task": "Send quote", "owner": None, "due_date": None, "due_date_iso": None}]
+
+    db.save_analysis(db_path, note_id, "Client called.", items, ["client"])
+
+    note = db.get_note(db_path, note_id)
+    assert note["summary"] == "Client called."
+    assert note["action_items"] == items
+    assert note["tags"] == ["client"]

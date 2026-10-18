@@ -67,6 +67,15 @@ def create_note(db_path, title, body, summary=None, action_items=None, tags=None
         return cursor.lastrowid
 
 
+def save_analysis(db_path, note_id, summary, action_items, tags):
+    """Store the AI results on an existing note."""
+    with closing(_connect(db_path)) as conn, conn:
+        conn.execute(
+            "UPDATE notes SET summary = ?, action_items = ?, tags = ? WHERE id = ?",
+            (summary, json.dumps(action_items), json.dumps(tags), note_id),
+        )
+
+
 def get_note(db_path, note_id):
     """Return one note as a dict, or None if there is no note with that id."""
     with closing(_connect(db_path)) as conn:

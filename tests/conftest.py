@@ -3,9 +3,25 @@
 A fixture is a helper pytest runs before a test and passes in by name.
 """
 
+import anthropic
 import pytest
 
+import ai
 import db
+
+
+@pytest.fixture(autouse=True)
+def no_real_api_calls(monkeypatch):
+    """Runs before every test: make creating a real API client fail.
+
+    So no test can ever reach the real Claude API (costs money, needs internet).
+    Code that isn't given a fake client behaves as if the API is unavailable.
+    """
+
+    def blocked():
+        raise anthropic.AnthropicError("real API calls are blocked in tests")
+
+    monkeypatch.setattr(ai, "_make_client", blocked)
 
 
 @pytest.fixture
