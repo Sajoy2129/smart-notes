@@ -63,6 +63,17 @@ Rules for the AI:
 - Only test with made-up or public notes, not real company or client
   information.
 
+## Decisions
+- Model: claude-sonnet-5-5
+- Due dates: keep the text as written; when the note mentions a date, also
+  work out the real date (from the note's created date) and show its week
+  number, e.g. "next Friday (24 Oct, week 43)"
+- Styling: Pico.css
+- Title and note text are both required
+- Ask "Are you sure?" before deleting a note
+- If the Claude API call fails (network error or invalid JSON), try once more
+- Tests use pytest and never call the real API
+
 ## Not in version 1
 - Marking action items as done
 - A page listing all open action items
