@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Ask – Smart Notes{% endblock %}
+
+{% block content %}
+<h1>Ask your notes</h1>
+
+<form method="post">
+  <label>
+    Question
+    <input name="question" value="{{ question }}" placeholder="When is the timber delivery?" required>
+  </label>
+  <button type="submit">Ask</button>
+</form>
+
+{% if error %}
+  <p role="alert"><strong>{{ error }}</strong></p>
+{% endif %}
+
+{% if answer %}
+  <article>
+    <p style="white-space: pre-wrap">{{ answer }}</p>
+  </article>
+{% endif %}
+
+{% if sources %}
+  <h2>{% if answer %}From these notes{% else %}Matching notes{% endif %}</h2>
+  <ul>
+    {% for note in sources %}
+      <li>
+        <a href="{{ url_for('view_note', note_id=note.id) }}">{{ note.title }}</a>
+        <small>({{ note.created_at | nice_date }})</small>
+      </li>
+    {% endfor %}
+  </ul>
+{% endif %}
+{% endblock %}

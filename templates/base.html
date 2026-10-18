@@ -10,7 +10,10 @@
   <header class="container">
     <nav>
       <ul><li><a href="{{ url_for('index') }}"><strong>Smart Notes</strong></a></li></ul>
-      <ul><li><a href="{{ url_for('new_note') }}" role="button">New note</a></li></ul>
+      <ul>
+        <li><a href="{{ url_for('ask') }}">Ask</a></li>
+        <li><a href="{{ url_for('new_note') }}" role="button">New note</a></li>
+      </ul>
     </nav>
   </header>
   <main class="container">

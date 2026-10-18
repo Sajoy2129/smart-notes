@@ -9,6 +9,7 @@ from flask import Flask, abort, redirect, render_template, request, url_for
 
 import ai
 import db
+import search
 from weeks import week_label
 
 
@@ -60,6 +61,41 @@ def create_app(db_path=db.DEFAULT_DB_PATH):
         if note is None:
             abort(404)
         return render_template("note.html", note=note)
+
+    # Asking uses POST because each question costs an API call; a GET could be
+    # repeated by refreshes or link previews.
+    @app.route("/ask", methods=["GET", "POST"])
+    def ask():
+        if request.method == "GET":
+            return render_template("ask.html", question="")
+
+        question = request.form.get("question", "").strip()
+        if not question:
+            return render_template(
+                "ask.html", question="", error="Please type a question."
+            ), 400
+
+        notes = db.list_notes(app.config["DATABASE"])
+        matches = search.search_notes(question, notes)
+        if not matches:
+            # Nothing matched: don't spend an API call, Claude has nothing to read.
+            return render_template(
+                "ask.html", question=question, answer=ai.NOT_FOUND, sources=[]
+            )
+
+        result = ai.answer_question(question, matches)
+        if result is None:
+            return render_template(
+                "ask.html",
+                question=question,
+                error="The AI couldn't answer right now. These notes might help:",
+                sources=matches,
+            ), 503  # 503 = service unavailable
+
+        sources = [note for note in matches if note["id"] in result["note_ids"]]
+        return render_template(
+            "ask.html", question=question, answer=result["answer"], sources=sources
+        )
 
     # POST only: a plain link (GET) must never delete anything.
     @app.route("/note/<int:note_id>/delete", methods=["POST"])

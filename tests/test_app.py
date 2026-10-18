@@ -179,3 +179,70 @@ def test_no_due_date_shows_nothing(client, monkeypatch):
 
     assert "Book scaffolding" in page
     assert "due" not in page.split("Book scaffolding")[1].split("</label>")[0]
+
+
+# ---------- Ask page ----------
+
+def add_note(db_path, title, body):
+    return db.create_note(db_path, title, body)
+
+
+def test_ask_page_loads(client):
+    response = client.get("/ask")
+
+    assert response.status_code == 200
+    assert b'name="question"' in response.data
+
+
+def test_ask_empty_question_shows_error(client):
+    response = client.post("/ask", data={"question": "  "})
+
+    assert response.status_code == 400
+    assert b"Please type a question." in response.data
+
+
+def test_ask_with_no_matching_notes_skips_api(client, db_path, monkeypatch):
+    add_note(db_path, "Site visit", "Painted the hallway.")
+
+    def must_not_be_called(*args):
+        raise AssertionError("the API should not be called")
+
+    monkeypatch.setattr(ai, "answer_question", must_not_be_called)
+
+    response = client.post("/ask", data={"question": "scaffolding?"})
+
+    assert b"I couldn&#39;t find that in your notes." in response.data
+
+
+def test_ask_shows_answer_and_links_only_used_notes(client, db_path, monkeypatch):
+    used = add_note(db_path, "Timber call", "Delivery moved to Thursday.")
+    add_note(db_path, "Delivery invoice", "Paid the delivery invoice.")
+    sent = []
+
+    def fake_answer(question, notes):
+        sent.extend(note["id"] for note in notes)
+        return {"answer": "The delivery is on Thursday.", "note_ids": [used]}
+
+    monkeypatch.setattr(ai, "answer_question", fake_answer)
+
+    page = client.post("/ask", data={"question": "When is the delivery?"}).data.decode()
+
+    assert sorted(sent) == [1, 2]  # both matching notes were sent to Claude
+    assert "The delivery is on Thursday." in page
+    assert f'href="/note/{used}"' in page
+    assert "Delivery invoice" not in page  # not used, so not linked
+
+
+def test_ask_when_api_fails_shows_message_and_matches(client, db_path, monkeypatch):
+    add_note(db_path, "Timber call", "Delivery moved to Thursday.")
+    monkeypatch.setattr(ai, "answer_question", lambda *args: None)
+
+    response = client.post("/ask", data={"question": "delivery"})
+
+    assert response.status_code == 503
+    assert b"couldn&#39;t answer right now" in response.data
+    assert b'href="/note/1"' in response.data
+
+
+def test_nav_has_ask_link(client):
+    assert b'href="/ask"' in client.get("/").data

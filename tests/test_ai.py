@@ -166,3 +166,70 @@ def test_missing_api_key_returns_none(monkeypatch):
     monkeypatch.setattr(ai, "_make_client", no_key)
 
     assert ai.analyze_note("t", "b", CREATED_AT) is None
+
+
+# ---------- answer_question ----------
+
+NOTES = [
+    {"id": 3, "title": "Timber call", "body": "Delivery moved to Thursday.",
+     "created_at": CREATED_AT},
+    {"id": 7, "title": "Site visit", "body": "Priya sends sample.", "created_at": CREATED_AT},
+]
+
+
+def answer_reply(found, answer, note_ids):
+    return fake_response(json.dumps({"found": found, "answer": answer, "note_ids": note_ids}))
+
+
+def test_answer_is_returned_with_note_ids():
+    client = FakeClient([answer_reply(True, "On Thursday.", [3])])
+
+    result = ai.answer_question("When is the delivery?", NOTES, client)
+
+    assert result == {"answer": "On Thursday.", "note_ids": [3]}
+
+
+def test_answer_request_contains_notes_with_ids_and_question_last():
+    client = FakeClient([answer_reply(True, "On Thursday.", [3])])
+
+    ai.answer_question("When is the delivery?", NOTES, client)
+
+    content = client.last_kwargs["messages"][0]["content"]
+    assert '<note id="3">' in content and '<note id="7">' in content
+    assert content.endswith("Question: When is the delivery?")
+    assert client.last_kwargs["output_config"]["format"]["schema"] == ai.ANSWER_SCHEMA
+
+
+def test_not_found_gives_standard_message():
+    client = FakeClient([answer_reply(False, "No idea", [3])])
+
+    result = ai.answer_question("Who is the plumber?", NOTES, client)
+
+    assert result == {"answer": "I couldn't find that in your notes.", "note_ids": []}
+
+
+def test_unknown_duplicate_and_bool_ids_are_dropped():
+    client = FakeClient([answer_reply(True, "Thursday.", [3, 3, 99, True, 7])])
+
+    result = ai.answer_question("When?", NOTES, client)
+
+    assert result["note_ids"] == [3, 7]
+
+
+def test_answer_invalid_then_valid_retries_once():
+    client = FakeClient([fake_response("nope"), answer_reply(True, "Thursday.", [3])])
+
+    assert ai.answer_question("When?", NOTES, client)["answer"] == "Thursday."
+    assert client.calls == 2
+
+
+def test_answer_found_but_empty_counts_as_invalid():
+    client = FakeClient([answer_reply(True, "  ", [3]), answer_reply(True, "", [3])])
+
+    assert ai.answer_question("When?", NOTES, client) is None
+
+
+def test_answer_api_failing_twice_returns_none():
+    client = FakeClient([connection_error(), connection_error()])
+
+    assert ai.answer_question("When?", NOTES, client) is None
