@@ -143,3 +143,39 @@ def test_note_still_saved_when_api_fails(client, db_path, monkeypatch):
     assert note["body"] == "Rang."
     assert note["summary"] is None
     assert b"AI summary not available" in client.get("/note/1").data
+
+
+def save_with_items(client, monkeypatch, items):
+    """Save a note whose (fake) AI analysis has the given action items."""
+    analysis = {"summary": "A note.", "action_items": items, "tags": ["test"]}
+    monkeypatch.setattr(ai, "analyze_note", lambda *args: analysis)
+    client.post("/new", data={"title": "Dates", "body": "Some tasks."})
+    return client.get("/note/1").data.decode()
+
+
+def test_due_date_shows_text_and_week(client, monkeypatch):
+    page = save_with_items(client, monkeypatch, [
+        {"task": "Send sample", "owner": None, "due_date": "next Friday",
+         "due_date_iso": "2026-10-23"},
+    ])
+
+    assert "due next Friday (23 Oct, week 43)" in page
+
+
+def test_due_date_without_exact_day_shows_text_only(client, monkeypatch):
+    page = save_with_items(client, monkeypatch, [
+        {"task": "Clear driveway", "owner": "Ben", "due_date": "before Thursday morning",
+         "due_date_iso": None},
+    ])
+
+    assert "due before Thursday morning" in page
+    assert "week" not in page
+
+
+def test_no_due_date_shows_nothing(client, monkeypatch):
+    page = save_with_items(client, monkeypatch, [
+        {"task": "Book scaffolding", "owner": "Tom", "due_date": None, "due_date_iso": None},
+    ])
+
+    assert "Book scaffolding" in page
+    assert "due" not in page.split("Book scaffolding")[1].split("</label>")[0]

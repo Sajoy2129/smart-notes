@@ -9,6 +9,7 @@ from flask import Flask, abort, redirect, render_template, request, url_for
 
 import ai
 import db
+from weeks import week_label
 
 
 def create_app(db_path=db.DEFAULT_DB_PATH):
@@ -21,6 +22,8 @@ def create_app(db_path=db.DEFAULT_DB_PATH):
     def nice_date(iso_text):
         """Show '2026-10-18T22:40:00' as '18 Oct 2026, 22:40'."""
         return datetime.fromisoformat(iso_text).strftime("%d %b %Y, %H:%M")
+
+    app.add_template_filter(week_label)
 
     @app.route("/")
     def index():

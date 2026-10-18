@@ -20,7 +20,11 @@
       <input type="checkbox" disabled>
       {{ item.task }}
       {% if item.owner %}— {{ item.owner }}{% endif %}
-      {% if item.due_date %}(due {{ item.due_date }}){% endif %}
+      {% set week = item.due_date_iso | week_label %}
+      {% if item.due_date and week %}· due {{ item.due_date }} ({{ week }})
+      {% elif item.due_date %}· due {{ item.due_date }}
+      {% elif week %}· due {{ week }}
+      {% endif %}
     </label>
   {% endfor %}
 {% else %}
