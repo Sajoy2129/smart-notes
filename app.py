@@ -48,4 +48,11 @@ def create_app(db_path=db.DEFAULT_DB_PATH):
             abort(404)
         return render_template("note.html", note=note)
 
+    # POST only: a plain link (GET) must never delete anything.
+    @app.route("/note/<int:note_id>/delete", methods=["POST"])
+    def delete_note(note_id):
+        if not db.delete_note(app.config["DATABASE"], note_id):
+            abort(404)
+        return redirect(url_for("index"))
+
     return app

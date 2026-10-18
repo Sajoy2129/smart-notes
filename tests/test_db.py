@@ -46,3 +46,14 @@ def test_list_notes_newest_first(db_path):
 
 def test_list_notes_empty(db_path):
     assert db.list_notes(db_path) == []
+
+
+def test_delete_note(db_path):
+    note_id = db.create_note(db_path, "Old", "Remove me")
+
+    assert db.delete_note(db_path, note_id) is True
+    assert db.get_note(db_path, note_id) is None
+
+
+def test_delete_missing_note_returns_false(db_path):
+    assert db.delete_note(db_path, 999) is False

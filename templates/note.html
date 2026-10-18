@@ -34,4 +34,9 @@
 
 <h2>Original note</h2>
 <pre style="white-space: pre-wrap">{{ note.body }}</pre>
+
+<form method="post" action="{{ url_for('delete_note', note_id=note.id) }}"
+      onsubmit="return confirm('Delete this note? This cannot be undone.');">
+  <button type="submit" class="secondary">Delete</button>
+</form>
 {% endblock %}

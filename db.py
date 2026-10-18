@@ -74,6 +74,13 @@ def get_note(db_path, note_id):
     return _row_to_note(row) if row else None
 
 
+def delete_note(db_path, note_id):
+    """Delete a note. Return True if it existed, False if there was nothing to delete."""
+    with closing(_connect(db_path)) as conn, conn:
+        cursor = conn.execute("DELETE FROM notes WHERE id = ?", (note_id,))
+        return cursor.rowcount > 0
+
+
 def list_notes(db_path):
     """Return all notes, newest first."""
     with closing(_connect(db_path)) as conn:

@@ -59,3 +59,32 @@ def test_html_in_notes_is_escaped(client):
 
     assert b"<script>x</script>" not in response.data
     assert b"&lt;script&gt;" in response.data
+
+
+def test_note_page_has_delete_button_with_confirm(client):
+    client.post("/new", data={"title": "Call", "body": "Rang."})
+
+    response = client.get("/note/1")
+
+    assert b'action="/note/1/delete"' in response.data
+    assert b"confirm(" in response.data
+
+
+def test_delete_removes_note_and_goes_home(client, db_path):
+    client.post("/new", data={"title": "Call", "body": "Rang."})
+
+    response = client.post("/note/1/delete")
+
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/")
+    assert db.get_note(db_path, 1) is None
+
+
+def test_delete_needs_post(client):
+    client.post("/new", data={"title": "Call", "body": "Rang."})
+
+    assert client.get("/note/1/delete").status_code == 405  # 405 = method not allowed
+
+
+def test_delete_missing_note_returns_404(client):
+    assert client.post("/note/999/delete").status_code == 404
