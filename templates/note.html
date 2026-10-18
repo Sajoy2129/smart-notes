@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}{{ note.title }} – Smart Notes{% endblock %}
+
+{% block content %}
+<h1>{{ note.title }}</h1>
+<small>{{ note.created_at | nice_date }}</small>
+
+<h2>Summary</h2>
+{% if note.summary %}
+  <p>{{ note.summary }}</p>
+{% else %}
+  <p><em>AI summary not available</em></p>
+{% endif %}
+
+<h2>Action items</h2>
+{% if note.action_items %}
+  {% for item in note.action_items %}
+    <label>
+      <input type="checkbox" disabled>
+      {{ item.task }}
+      {% if item.owner %}— {{ item.owner }}{% endif %}
+      {% if item.due_date %}(due {{ item.due_date }}){% endif %}
+    </label>
+  {% endfor %}
+{% else %}
+  <p>No action items.</p>
+{% endif %}
+
+{% if note.tags %}
+  <h2>Tags</h2>
+  <p>{% for tag in note.tags %}<mark>{{ tag }}</mark> {% endfor %}</p>
+{% endif %}
+
+<h2>Original note</h2>
+<pre style="white-space: pre-wrap">{{ note.body }}</pre>
+{% endblock %}

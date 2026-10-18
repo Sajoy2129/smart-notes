@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Your notes</h1>
+
+{% for note in notes %}
+  <article>
+    <h3><a href="{{ url_for('view_note', note_id=note.id) }}">{{ note.title }}</a></h3>
+    <small>{{ note.created_at | nice_date }}</small>
+    {% if note.tags %}
+      <p>{% for tag in note.tags %}<mark>{{ tag }}</mark> {% endfor %}</p>
+    {% endif %}
+    {% if note.summary %}
+      <p>{{ note.summary.splitlines()[0] }}</p>
+    {% endif %}
+  </article>
+{% else %}
+  <p>No notes yet. <a href="{{ url_for('new_note') }}">Write your first one.</a></p>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}New note – Smart Notes{% endblock %}
+
+{% block content %}
+<h1>New note</h1>
+
+{% if error %}
+  <p role="alert"><strong>{{ error }}</strong></p>
+{% endif %}
+
+<form method="post">
+  <label>
+    Title
+    <input name="title" value="{{ title }}" required>
+  </label>
+  <label>
+    Note
+    <textarea name="body" rows="12" required>{{ body }}</textarea>
+  </label>
+  <button type="submit">Save</button>
+</form>
+{% endblock %}
