@@ -203,3 +203,15 @@ def list_projects(db_path):
             "ORDER BY projects.name COLLATE NOCASE"
         ).fetchall()
     return [dict(row) for row in rows]
+
+
+def list_open_notes(db_path):
+    """Return open notes from every project, newest first, each with project_name."""
+    with closing(_connect(db_path)) as conn:
+        rows = conn.execute(
+            "SELECT notes.*, projects.name AS project_name "
+            "FROM notes LEFT JOIN projects ON projects.id = notes.project_id "
+            "WHERE notes.completed_at IS NULL "
+            "ORDER BY notes.created_at DESC, notes.id DESC"
+        ).fetchall()
+    return [_row_to_note(row) for row in rows]

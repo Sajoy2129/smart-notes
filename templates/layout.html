@@ -14,7 +14,7 @@
       <nav class="nav-links">
         {# aria-current marks the page you're on, for styling and screen readers #}
         <a href="{{ url_for('index') }}"
-           {% if request.endpoint in ('index', 'view_project') %}aria-current="page"{% endif %}>Projects</a>
+           {% if request.endpoint == 'index' %}aria-current="page"{% endif %}>All notes</a>
         <a href="{{ url_for('ask') }}"
            {% if request.endpoint == 'ask' %}aria-current="page"{% endif %}>Ask</a>
       </nav>

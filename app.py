@@ -61,11 +61,10 @@ def create_app(db_path=db.DEFAULT_DB_PATH):
 
     @app.route("/")
     def index():
-        """Open the first project, or show a welcome screen when there are none."""
-        projects = db.list_projects(app.config["DATABASE"])
-        if projects:
-            return redirect(url_for("view_project", project_id=projects[0]["id"]))
-        return render_template("index.html", projects=[])
+        """All open notes from every project, or a welcome screen when there are none."""
+        if not db.list_projects(app.config["DATABASE"]):
+            return render_template("index.html", projects=[])
+        return render_notes_page()
 
     @app.route("/projects", methods=["POST"])
     def create_project():
@@ -76,39 +75,32 @@ def create_app(db_path=db.DEFAULT_DB_PATH):
         project_id = db.create_project(app.config["DATABASE"], name[:MAX_PROJECT_NAME])
         return redirect(url_for("view_project", project_id=project_id))
 
-    def render_project(project, body="", error=None):
-        """The project page: sidebar, add-note box and the open notes as cards."""
+    def render_notes_page(project=None, error=None, body=""):
+        """Sidebar, note cards and the add-note box.
+
+        With a project: that project's open notes. Without: "All notes" from every project.
+        """
         db_path = app.config["DATABASE"]
-        return render_template(
-            "project.html",
+        if project:
+            notes = db.list_project_notes(db_path, project["id"])
+        else:
+            notes = db.list_open_notes(db_path)
+        page = render_template(
+            "notes.html",
             projects=db.list_projects(db_path),
             project=project,
-            notes=db.list_project_notes(db_path, project["id"]),
-            body=body,
+            notes=notes,
             error=error,
+            body=body,  # keeps what was typed when there is an error
         )
+        # Status 400 = bad request: the page is shown again with the error message.
+        return (page, 400) if error else page
 
-    @app.route("/project/<int:project_id>")
-    def view_project(project_id):
-        project = db.get_project(app.config["DATABASE"], project_id)
-        if project is None:
-            abort(404)
-        return render_project(project)
-
-    @app.route("/project/<int:project_id>/notes", methods=["POST"])
-    def add_note(project_id):
+    def save_note(project, body):
+        """Save a note in a project, then let Claude analyse it. Return the note id."""
         db_path = app.config["DATABASE"]
-        project = db.get_project(db_path, project_id)
-        if project is None:
-            abort(404)
-
-        body = request.form.get("body", "").strip()
-        if not body:
-            # Status 400 = bad request. The page is shown again with a message.
-            return render_project(project, error="Please type a note first."), 400
-
         # Save first, so the note is kept even if the AI step fails.
-        note_id = db.create_note(db_path, "", body, project_id=project_id)
+        note_id = db.create_note(db_path, "", body, project_id=project["id"])
         note = db.get_note(db_path, note_id)
 
         # Notes have no title, so the project name gives Claude the context instead.
@@ -118,7 +110,40 @@ def create_app(db_path=db.DEFAULT_DB_PATH):
                 db_path, note_id, analysis["summary"], analysis["action_items"], analysis["tags"]
             )
         flash("Note saved ✓")
+        return note_id
+
+    @app.route("/project/<int:project_id>")
+    def view_project(project_id):
+        project = db.get_project(app.config["DATABASE"], project_id)
+        if project is None:
+            abort(404)
+        return render_notes_page(project)
+
+    @app.route("/project/<int:project_id>/notes", methods=["POST"])
+    def add_note(project_id):
+        """Add-note box on a project page."""
+        project = db.get_project(app.config["DATABASE"], project_id)
+        if project is None:
+            abort(404)
+        body = request.form.get("body", "").strip()
+        if not body:
+            return render_notes_page(project, error="Please type a note first.")
+        save_note(project, body)
         return redirect(url_for("view_project", project_id=project_id))
+
+    @app.route("/notes", methods=["POST"])
+    def add_note_from_all_notes():
+        """Add-note box on the All notes page, where a menu picks the project."""
+        project = db.get_project(
+            app.config["DATABASE"], request.form.get("project_id", type=int)
+        )
+        body = request.form.get("body", "").strip()
+        if project is None:
+            return render_notes_page(error="Please choose a project for the note.", body=body)
+        if not body:
+            return render_notes_page(error="Please type a note first.")
+        save_note(project, body)
+        return redirect(url_for("index"))
 
     @app.route("/note/<int:note_id>")
     def view_note(note_id):

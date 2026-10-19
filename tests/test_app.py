@@ -27,14 +27,62 @@ def test_home_with_no_projects_shows_welcome(client):
     assert b'action="/projects"' in response.data  # the new-project box
 
 
-def test_home_opens_first_project(client, db_path):
-    db.create_project(db_path, "Office")
-    garden = db.create_project(db_path, "Garden")
+def test_home_shows_all_open_notes_with_project_names(client, db_path, project_id):
+    office = db.create_project(db_path, "Office")
+    save_note(client, project_id, "Harbour note")
+    save_note(client, office, "Office note")
+    save_note(client, office, "Finished note")
+    client.post("/note/3/complete")
 
-    response = client.get("/")
+    page = client.get("/").data.decode()
+
+    assert "<h1>All notes</h1>" in page
+    assert page.index("Office note") < page.index("Harbour note")  # newest first
+    assert "Finished note" not in page
+    assert '<span class="note-project">Office</span>' in page
+    assert '<span class="note-project">Harbour Road</span>' in page
+
+
+def test_add_note_box_is_below_the_cards(client, project_id):
+    save_note(client, project_id)
+
+    for url in ["/", f"/project/{project_id}"]:
+        page = client.get(url).data.decode()
+        assert page.index('class="note-grid"') < page.index('id="note-form"'), url
+
+
+def test_add_note_from_all_notes_page_goes_to_chosen_project(client, db_path, project_id):
+    office = db.create_project(db_path, "Office")
+
+    response = client.post("/notes", data={"body": "Call the electrician.", "project_id": office})
 
     assert response.status_code == 302
-    assert response.headers["Location"].endswith(f"/project/{garden}")  # A-Z: Garden first
+    assert response.headers["Location"].endswith("/")
+    note = db.get_note(db_path, 1)
+    assert note["project_id"] == office
+    assert note["body"] == "Call the electrician."
+
+
+def test_all_notes_add_box_lists_projects(client, db_path, project_id):
+    page = client.get("/").data.decode()
+
+    assert f'<option value="{project_id}">Harbour Road</option>' in page
+
+
+def test_all_notes_add_needs_a_real_project(client, db_path, project_id):
+    response = client.post("/notes", data={"body": "Lost note", "project_id": "999"})
+
+    assert response.status_code == 400
+    assert b"Please choose a project for the note." in response.data
+    assert b"Lost note" in response.data  # what was typed is kept
+    assert db.list_notes(db_path) == []
+
+
+def test_all_notes_add_needs_text(client, db_path, project_id):
+    response = client.post("/notes", data={"body": "  ", "project_id": project_id})
+
+    assert response.status_code == 400
+    assert db.list_notes(db_path) == []
 
 
 def test_create_project_and_open_it(client, db_path):
@@ -412,11 +460,11 @@ def test_every_page_uses_new_design(client, project_id):
         assert b'class="topbar"' in page, url
 
 
-def test_top_bar_has_projects_and_ask_links_and_ask_box(client):
+def test_top_bar_has_all_notes_and_ask_links_and_ask_box(client):
     page = client.get("/").data
 
     assert b'href="/ask"' in page
-    assert b">Projects</a>" in page
+    assert b">All notes</a>" in page
     assert b'placeholder="Ask your notes' in page
     assert b"New Note" not in page  # notes are added inside a project now
 

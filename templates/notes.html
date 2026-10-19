@@ -1,0 +1,75 @@
+{% extends "layout.html" %}
+
+{# Two pages share this template:
+   - a project page (project is set): that project's open notes
+   - "All notes" on the home page (project is None): open notes from every project #}
+
+{% block title %}{{ project.name if project else "All notes" }} – Smart Notes{% endblock %}
+{% block container_class %}container-wide{% endblock %}
+
+{% block content %}
+<div class="workspace">
+  {% include "_sidebar.html" %}
+
+  <section>
+    <h1>{{ project.name if project else "All notes" }}</h1>
+
+    {% if notes %}
+      <ul class="note-grid">
+        {% for note in notes %}
+          <li class="note-card card">
+            <a class="note-link" href="{{ url_for('view_note', note_id=note.id) }}">
+              {% if not project and note.project_name %}
+                <span class="note-project">{{ note.project_name }}</span>
+              {% endif %}
+              <p class="note-text">{{ note.body }}</p>
+              <time class="muted" datetime="{{ note.created_at }}"
+                    title="{{ note.created_at | nice_date }}">{{ note.created_at | time_ago }}</time>
+            </a>
+            <div class="note-card-footer">
+              <div class="tags">
+                {% for tag in note.tags %}<span class="tag">{{ tag }}</span>{% endfor %}
+              </div>
+              <form method="post" action="{{ url_for('complete_note', note_id=note.id) }}">
+                <button class="button-complete" type="submit">✓ Complete</button>
+              </form>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted empty-hint">No open notes{% if project %} in this project{% endif %}. Add one below.</p>
+    {% endif %}
+
+    {% if error %}
+      <p class="alert" role="alert">{{ error }}</p>
+    {% endif %}
+
+    <form class="card quick-add" method="post" id="note-form"
+          action="{{ url_for('add_note', project_id=project.id) if project else url_for('add_note_from_all_notes') }}">
+      <textarea name="body" rows="3" required aria-label="New note"
+                placeholder="Type a note…">{{ body }}</textarea>
+      <div class="form-actions">
+        {% if not project %}
+          <select name="project_id" required aria-label="Project for this note">
+            {% for item in projects %}
+              <option value="{{ item.id }}">{{ item.name }}</option>
+            {% endfor %}
+          </select>
+        {% endif %}
+        <span class="saving" hidden><span class="spinner"></span> Claude is reading your note…</span>
+        <button class="button" type="submit">Add note</button>
+      </div>
+    </form>
+  </section>
+</div>
+
+<script>
+  // Saving waits for Claude, which can take a few seconds. Show a spinner and stop
+  // double clicks. "submit" only fires once the note box is filled in.
+  document.getElementById("note-form").addEventListener("submit", function () {
+    this.querySelector("button").disabled = true;
+    this.querySelector(".saving").hidden = false;
+  });
+</script>
+{% endblock %}

@@ -178,23 +178,35 @@ main.container {
   list-style: none;
 }
 
+/* Each project is its own white box, stacked with a gap */
+.project-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
 .project-list a {
   display: flex;
   justify-content: space-between;
-  padding: 0.45rem 0.75rem;
+  padding: 0.75rem 1rem;
   color: var(--text);
   text-decoration: none;
+  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .project-list a:hover {
-  background: var(--tag-bg);
+  border-color: #c9d3e0;
+  box-shadow: 0 2px 8px rgba(30, 58, 95, 0.06);
 }
 
 .project-list a[aria-current="page"] {
   font-weight: 600;
   color: #fff;
   background: var(--navy);
+  border-color: var(--navy);
 }
 
 .project-list .count {
@@ -223,9 +235,22 @@ main.container {
 }
 
 /* Add-note box at the top of a project */
+/* Add-note box, below the cards */
 .quick-add {
   padding: 0.9rem 1rem;
-  margin-bottom: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.quick-add select {
+  max-width: 200px;
+  padding: 0.45rem 0.6rem;
+  margin-right: auto; /* pushes the Save button to the right */
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--text);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
 }
 
 .quick-add textarea {
@@ -244,7 +269,18 @@ main.container {
 }
 
 .empty-hint {
-  margin-top: 1rem;
+  margin: 0;
+}
+
+/* Project name on cards in All notes */
+.note-project {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--navy);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 /* ---------- Note cards in a grid: as many 240px+ columns as fit ---------- */
@@ -619,7 +655,7 @@ main.container {
 
   /* Projects become a row of chips instead of a tall list */
   .project-list {
-    display: flex;
+    flex-direction: row;
     flex-wrap: wrap;
     gap: 0.4rem;
   }

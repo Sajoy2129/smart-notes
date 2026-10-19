@@ -10,12 +10,14 @@ across all my notes and get answers that show which notes they came from.
 Just me, on my own Mac. No login needed in version 1.
 
 ## Pages
-- **Home (/)**: opens the first project. With no projects yet, shows a
-  welcome message.
-- **Projects sidebar**: on the left of the home page, a list of my projects
-  (A–Z, with how many open notes each has) and a box to add a new project.
-- **Project (/project/<id>)**: a text box at the top to add a note (no title
-  needed), then the project's open notes as cards, newest first. Each card
+- **Home (/) – All notes**: open notes from every project as cards, newest
+  first, each labelled with its project. Below the cards, a box to add a note
+  with a menu to choose its project. With no projects yet, shows a welcome
+  message.
+- **Projects sidebar**: on the left, a list of my projects (A–Z, with how
+  many open notes each has) and a box to add a new project.
+- **Project (/project/<id>)**: the project's open notes as cards, newest
+  first, then a box at the bottom to add a note (no title needed). Each card
   shows the note text, date, tags and a "Complete" button.
 - **View note (/note/<id>)**: shows the summary at the top, then action
   items as a checklist, then tags, then the original note text.

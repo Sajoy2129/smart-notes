@@ -15,12 +15,15 @@ Clean, calm and professional, like a modern work tool. Not playful.
 - Titles bold, dates and labels small and grey
 
 ## Layout
-- Top bar: "Smart Notes" on the left; Projects and Ask links; "Ask your notes…" box on the right
+- Top bar: "Smart Notes" on the left; All notes and Ask links; "Ask your notes…" box on the right
 - Content in a centered column, max width about 900px (1100px on project pages)
-- Project pages: projects sidebar on the left (current project highlighted in
-  navy, open-note count on the right, "+ New project" box below); on a phone
-  the projects become a row of chips above the notes
-- At the top of a project: a white "Type a note…" box with a Save button
+- Home ("All notes") and project pages: projects sidebar on the left, each
+  project its own white bordered box (current project filled navy, open-note
+  count on the right, "+ New project" box below); on a phone the projects
+  become a row of chips above the notes
+- Below the cards: a white "Type a note…" box with an "Add note" button
+  (on All notes, also a menu to pick the project)
+- On All notes, each card shows its project name in small navy capitals
 - Notes shown as cards in a grid (3 across on a laptop, 1 on a phone): no
   heading, just the note text (up to 5 lines), date ("2 hours ago"), tags as
   pills, and a green outlined "✓ Complete" button

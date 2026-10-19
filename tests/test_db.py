@@ -155,3 +155,17 @@ def test_old_database_is_upgraded_and_notes_go_to_general(tmp_path):
 
 def test_new_database_has_no_general_project(db_path):
     assert db.list_projects(db_path) == []
+
+
+def test_open_notes_from_all_projects_newest_first_with_project_name(db_path):
+    harbour = db.create_project(db_path, "Harbour Road")
+    office = db.create_project(db_path, "Office")
+    first = db.create_note(db_path, "", "First", project_id=harbour)
+    second = db.create_note(db_path, "", "Second", project_id=office)
+    done = db.create_note(db_path, "", "Done", project_id=office)
+    db.complete_note(db_path, done)
+
+    notes = db.list_open_notes(db_path)
+
+    assert [note["id"] for note in notes] == [second, first]
+    assert [note["project_name"] for note in notes] == ["Office", "Harbour Road"]
