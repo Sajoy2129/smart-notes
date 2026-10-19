@@ -7,20 +7,24 @@
 </div>
 
 {% if notes %}
-  <ul class="note-list card">
+  <ul class="note-grid">
     {% for note in notes %}
       <li>
-        <a class="note-row" href="{{ url_for('view_note', note_id=note.id) }}">
-          <div class="note-row-top">
-            <span class="note-title">{{ note.title }}</span>
-            <time class="muted" datetime="{{ note.created_at }}"
-                  title="{{ note.created_at | nice_date }}">{{ note.created_at | time_ago }}</time>
-          </div>
+        <a class="note-card card" href="{{ url_for('view_note', note_id=note.id) }}">
+          <span class="note-title">{{ note.title }}</span>
+          <time class="muted" datetime="{{ note.created_at }}"
+                title="{{ note.created_at | nice_date }}">{{ note.created_at | time_ago }}</time>
           {% if note.summary %}
             <p class="note-snippet">{{ note.summary.splitlines()[0] }}</p>
+          {% else %}
+            <p class="note-snippet"><em>No AI summary yet</em></p>
           {% endif %}
-          {% if note.tags %}
+          {% set task_count = note.action_items | length %}
+          {% if note.tags or task_count %}
             <div class="tags">
+              {% if task_count %}
+                <span class="chip chip-tasks">{{ task_count }} action item{{ "s" if task_count != 1 }}</span>
+              {% endif %}
               {% for tag in note.tags %}<span class="tag">{{ tag }}</span>{% endfor %}
             </div>
           {% endif %}

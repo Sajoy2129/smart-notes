@@ -187,14 +187,26 @@ def test_other_pages_keep_old_design_for_now(client):
     assert b"/static/app.css" not in client.get("/ask").data
 
 
-def test_home_rows_show_time_ago_and_tag_pills(client, monkeypatch):
+def test_home_cards_show_time_ago_and_chips(client, monkeypatch):
     monkeypatch.setattr(ai, "analyze_note", lambda *args: FAKE_ANALYSIS)
     client.post("/new", data={"title": "Site visit", "body": "Priya to send sample."})
 
     home = client.get("/").data
 
+    assert b'class="note-card card"' in home
     assert b"just now" in home
     assert b'<span class="tag">painting</span>' in home
+    assert b"1 action item<" in home  # singular: "item", not "items"
+
+
+def test_home_card_without_ai_has_no_task_chip(client, monkeypatch):
+    monkeypatch.setattr(ai, "analyze_note", lambda *args: None)
+    client.post("/new", data={"title": "Call", "body": "Rang."})
+
+    home = client.get("/").data
+
+    assert b"No AI summary yet" in home
+    assert b"action item" not in home
 
 
 def test_home_empty_state_has_button(client):

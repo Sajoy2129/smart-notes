@@ -17,7 +17,8 @@ Clean, calm and professional, like a modern work tool. Not playful.
 ## Layout
 - Top bar: "Smart Notes" on the left; Notes, New Note, Ask links; search box on the right
 - Content in a centered column, max width about 900px
-- Notes listed as rows: title, date ("2 hours ago"), tags as pills
+- Notes shown as cards in a grid (3 across on a laptop, 1 on a phone): title,
+  date ("2 hours ago"), 2-line summary, then chips for action item count and tags
 
 ## Components
 - Buttons: rounded corners, navy background, white text; delete button red

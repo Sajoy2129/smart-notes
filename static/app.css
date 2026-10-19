@@ -148,53 +148,55 @@ main.container {
   margin: 0;
 }
 
-/* ---------- Cards and note rows ---------- */
+/* ---------- Cards ---------- */
 .card {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
 }
 
-.note-list {
+/* Note cards in a grid: as many 260px+ columns as fit, so 3 on a laptop, 1 on a phone */
+.note-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
   padding: 0;
   margin: 0;
   list-style: none;
 }
 
-.note-row {
-  display: block;
-  padding: 1rem 1.25rem;
+.note-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%; /* cards in the same row are the same height */
+  padding: 1.1rem 1.25rem;
   color: inherit;
   text-decoration: none;
-  border-bottom: 1px solid var(--border);
+  transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s;
 }
 
-.note-list li:last-child .note-row {
-  border-bottom: none;
-}
-
-.note-row:hover {
-  background: #fafbfc;
-}
-
-.note-row-top {
-  display: flex;
-  gap: 1rem;
-  align-items: baseline;
-  justify-content: space-between;
+.note-card:hover {
+  border-color: #c9d3e0;
+  box-shadow: 0 4px 14px rgba(30, 58, 95, 0.08);
+  transform: translateY(-2px); /* lifts slightly */
 }
 
 .note-title {
+  font-size: 1.05rem;
   font-weight: 700;
   color: var(--navy);
 }
 
 .note-snippet {
-  margin: 0.25rem 0 0.5rem;
+  /* Show at most 2 lines, ending with "…" */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  flex-grow: 1; /* pushes the chips to the bottom of the card */
+  margin: 0.6rem 0 0.9rem;
   overflow: hidden;
+  font-size: 0.95rem;
   color: var(--muted);
-  text-overflow: ellipsis; /* long summaries end with "…" */
-  white-space: nowrap;
 }
 
 /* ---------- Small grey text: dates and labels ---------- */
@@ -235,6 +237,7 @@ main.container {
   border: 1px solid var(--border);
 }
 
+.chip-tasks { color: var(--navy); border-color: var(--navy); font-weight: 600; }
 .chip-overdue { color: var(--overdue); border-color: var(--overdue); }
 .chip-due-soon { color: var(--due-soon); border-color: var(--due-soon); }
 .chip-done { color: var(--done); border-color: var(--done); }
@@ -273,10 +276,5 @@ main.container {
 
   .search input {
     width: 100%;
-  }
-
-  .note-row-top {
-    flex-direction: column;
-    gap: 0;
   }
 }
