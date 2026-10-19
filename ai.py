@@ -11,7 +11,6 @@ import os
 from datetime import date, datetime
 
 import anthropic
-from dotenv import load_dotenv
 
 MODEL = "claude-sonnet-5-5"
 MAX_ATTEMPTS = 2  # the first try plus one retry, as the spec asks
@@ -91,8 +90,10 @@ class InvalidReplyError(Exception):
 # ---------- Shared helpers ----------
 
 def _make_client():
-    """Create the API client, reading ANTHROPIC_API_KEY from .env."""
-    load_dotenv()
+    """Create the API client, reading the ANTHROPIC_API_KEY environment variable.
+
+    Locally, create_app() has already copied it from .env into the environment.
+    """
     # Without a key the SDK only fails later, with a TypeError, so check for it here.
     if not os.getenv("ANTHROPIC_API_KEY"):
         raise anthropic.AnthropicError("ANTHROPIC_API_KEY is not set")

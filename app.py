@@ -1,12 +1,15 @@
 """Smart Notes web app (Flask routes).
 
-Run with:  flask --app app run --debug
+Run locally with:  flask --app app run --debug
+Settings come from environment variables; locally they are read from .env.
 """
 
 import os
 from datetime import datetime
 
+from dotenv import load_dotenv
 from flask import Flask, abort, flash, redirect, render_template, request, url_for
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 import ai
 import db
@@ -16,19 +19,65 @@ from weeks import due_status, week_label
 
 HEADING_LENGTH = 60  # notes without a title use their first line, cut to this length
 MAX_PROJECT_NAME = 60
+LOCAL_HOSTS = ["localhost", "127.0.0.1"]
 
 
-def create_app(db_path=db.DEFAULT_DB_PATH):
-    """Build the Flask app. Tests pass in a temporary database path."""
+def load_settings(db_path=None):
+    """Read the app's settings from environment variables.
+
+    load_dotenv() first copies .env into the environment, but only for names that
+    aren't set already. On Render there is no .env, so the real variables are used.
+    """
+    load_dotenv()
+    on_render = bool(os.getenv("RENDER"))  # Render sets RENDER=true on its servers
+
+    # Only answer requests addressed to this app. Blocks "DNS rebinding", where another
+    # website points its own name at our server to get past the Origin check below.
+    hosts = list(LOCAL_HOSTS)
+    if os.getenv("RENDER_EXTERNAL_HOSTNAME"):  # e.g. smart-notes.onrender.com
+        hosts.append(os.getenv("RENDER_EXTERNAL_HOSTNAME"))
+
+    return {
+        "ON_RENDER": on_render,
+        # Signs the session cookie (flash messages, and later the login). It must stay
+        # the same across restarts and stay secret, so it can't be made up here.
+        "SECRET_KEY": os.getenv("SECRET_KEY"),
+        "DATABASE": db_path or os.getenv("DATABASE_PATH", db.DEFAULT_DB_PATH),
+        "TRUSTED_HOSTS": hosts,
+        # Online the site is HTTPS only, so the cookie must never travel over plain HTTP.
+        # Locally it's http://, where a Secure cookie would be dropped by the browser.
+        "SESSION_COOKIE_SECURE": on_render,
+        # Browsers won't attach the cookie to form posts started by other websites.
+        "SESSION_COOKIE_SAMESITE": "Lax",
+    }
+
+
+def create_app(db_path=None, test_config=None):
+    """Build the Flask app.
+
+    Tests pass in a temporary database path, and test_config to override settings.
+    """
     app = Flask(__name__)
-    app.config["DATABASE"] = db_path
-    # Only answer requests addressed to this Mac. Blocks "DNS rebinding", where another
-    # website points its own name at 127.0.0.1 to get past the Origin check below.
-    app.config["TRUSTED_HOSTS"] = ["localhost", "127.0.0.1"]
-    # flash() messages are kept in a signed cookie, which needs a secret key. A random one
-    # is fine here: it only means a message is lost if the server restarts mid-redirect.
-    app.secret_key = os.urandom(32)
-    db.init_db(db_path)
+    app.config.update(load_settings(db_path))
+    if test_config:
+        app.config.update(test_config)
+
+    # Fail fast: refusing to start is better than running with a missing secret.
+    if not app.config["SECRET_KEY"]:
+        raise RuntimeError(
+            "SECRET_KEY is not set. Add it to .env (locally) or to the Render "
+            'environment. Make one with: python3 -c "import secrets; '
+            'print(secrets.token_hex(32))"'
+        )
+
+    if app.config["ON_RENDER"]:
+        # Render's proxy receives the HTTPS request and passes it on as plain HTTP,
+        # adding X-Forwarded-Proto: https. ProxyFix makes Flask trust that header, so
+        # request.host_url starts with https:// and matches the browser's Origin.
+        # Only on Render: without a proxy in front, anyone could send that header.
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
+
+    db.init_db(app.config["DATABASE"])
 
     @app.template_filter("nice_date")
     def nice_date(iso_text):

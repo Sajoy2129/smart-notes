@@ -174,7 +174,6 @@ def test_missing_api_key_returns_none(monkeypatch):
 def test_missing_api_key_with_real_client_returns_none(monkeypatch):
     # Uses the real _make_client, so we test how the real SDK behaves without a key.
     monkeypatch.setattr(ai, "_make_client", REAL_MAKE_CLIENT)
-    monkeypatch.setattr(ai, "load_dotenv", lambda: None)  # don't reload the key from .env
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
 

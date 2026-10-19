@@ -7,7 +7,22 @@ import anthropic
 import pytest
 
 import ai
+import app as app_module
 import db
+
+TEST_SETTINGS = {"SECRET_KEY": "test-secret-key"}
+
+# Environment variables the app reads. Cleared for every test, so a test never
+# depends on what's set on the machine running it.
+APP_ENV_VARS = ["SECRET_KEY", "DATABASE_PATH", "RENDER", "RENDER_EXTERNAL_HOSTNAME"]
+
+
+@pytest.fixture(autouse=True)
+def clean_environment(monkeypatch):
+    """Runs before every test: ignore the real .env and the app's environment variables."""
+    monkeypatch.setattr(app_module, "load_dotenv", lambda: None)
+    for name in APP_ENV_VARS:
+        monkeypatch.delenv(name, raising=False)
 
 
 @pytest.fixture(autouse=True)
@@ -37,6 +52,6 @@ def client(db_path):
     """A fake browser that sends requests to the app without a real server."""
     from app import create_app
 
-    app = create_app(db_path)
+    app = create_app(db_path, TEST_SETTINGS)
     app.config["TESTING"] = True
     return app.test_client()
