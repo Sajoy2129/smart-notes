@@ -271,6 +271,9 @@ def _parse_answer(data, allowed_ids):
         is_int = isinstance(note_id, int) and not isinstance(note_id, bool)
         if is_int and note_id in allowed_ids and note_id not in used_ids:
             used_ids.append(note_id)
+    if not used_ids:
+        # The spec says every answer shows its sources; without any we can't do that.
+        raise InvalidReplyError("answer has no valid note ids")
     return {"answer": answer.strip(), "note_ids": used_ids}
 
 

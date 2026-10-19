@@ -242,6 +242,25 @@ def test_answer_found_but_empty_counts_as_invalid():
     assert ai.answer_question("When?", NOTES, client) is None
 
 
+def test_answer_without_valid_sources_is_retried():
+    # SPEC: answers must show which notes they came from. An answer whose ids are
+    # all missing or made up can't do that, so it counts as invalid.
+    client = FakeClient([answer_reply(True, "Thursday.", [99]),
+                         answer_reply(True, "Thursday.", [3])])
+
+    result = ai.answer_question("When?", NOTES, client)
+
+    assert result == {"answer": "Thursday.", "note_ids": [3]}
+    assert client.calls == 2
+
+
+def test_answer_with_no_sources_twice_returns_none():
+    client = FakeClient([answer_reply(True, "Thursday.", []),
+                         answer_reply(True, "Thursday.", [])])
+
+    assert ai.answer_question("When?", NOTES, client) is None
+
+
 def test_answer_api_failing_twice_returns_none():
     client = FakeClient([connection_error(), connection_error()])
 
