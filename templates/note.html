@@ -1,59 +1,68 @@
-{% extends "base.html" %}
+{% extends "layout.html" %}
 
 {% block title %}{{ note.title }} – Smart Notes{% endblock %}
 
 {% block content %}
-<h1>{{ note.title }}</h1>
-<small>{{ note.created_at | nice_date }}</small>
+<div class="page-header">
+  <div>
+    <h1>{{ note.title }}</h1>
+    <time class="muted" datetime="{{ note.created_at }}">{{ note.created_at | nice_date }}</time>
+  </div>
+</div>
 
-<section class="summary">
-  <h2 class="section-title">Summary</h2>
+<section class="summary-box">
+  <span class="label">AI summary</span>
   {% if note.summary %}
     <p>{{ note.summary }}</p>
   {% else %}
-    <p><em>AI summary not available</em></p>
+    <p><strong>AI summary not available</strong></p>
+    <p class="muted">Claude couldn't read this note just now. Your note is saved.</p>
   {% endif %}
 </section>
 
-<h2 class="section-title">Action items</h2>
+<h2 class="label section-heading">Action items</h2>
 {% if note.action_items %}
-  <ul class="checklist">
+  <ul class="checklist card">
     {% for item in note.action_items %}
       <li>
         <input type="checkbox" disabled aria-label="Done">
         <div>
-          {{ item.task }}
+          <span>{{ item.task }}</span>
           {% set week = item.due_date_iso | week_label %}
           {% if item.owner or item.due_date or week %}
-            <span class="meta">
-              {% if item.owner %}{{ item.owner }}{% endif %}
-              {% if item.owner and (item.due_date or week) %}·{% endif %}
-              {% if item.due_date and week %}due {{ item.due_date }} ({{ week }})
-              {% elif item.due_date %}due {{ item.due_date }}
-              {% elif week %}due {{ week }}
+            <div class="chips">
+              {% if item.owner %}<span class="chip">{{ item.owner }}</span>{% endif %}
+              {% set status = item.due_date_iso | due_status %}
+              {% if item.due_date or week %}
+                <span class="chip{% if status %} chip-{{ status }}{% endif %}">
+                  {%- if item.due_date and week %}due {{ item.due_date }} ({{ week }})
+                  {%- elif item.due_date %}due {{ item.due_date }}
+                  {%- else %}due {{ week }}
+                  {%- endif -%}
+                </span>
               {% endif %}
-            </span>
+            </div>
           {% endif %}
         </div>
       </li>
     {% endfor %}
   </ul>
 {% else %}
-  <p>No action items.</p>
+  <p class="muted">No action items.</p>
 {% endif %}
 
 {% if note.tags %}
-  <h2 class="section-title">Tags</h2>
+  <h2 class="label section-heading">Tags</h2>
   <div class="tags">
     {% for tag in note.tags %}<span class="tag">{{ tag }}</span>{% endfor %}
   </div>
 {% endif %}
 
-<h2 class="section-title">Original note</h2>
-<pre class="note-body">{{ note.body }}</pre>
+<h2 class="label section-heading">Original note</h2>
+<pre class="note-body card">{{ note.body }}</pre>
 
 <form method="post" action="{{ url_for('delete_note', note_id=note.id) }}"
       onsubmit="return confirm('Delete this note? This cannot be undone.');">
-  <button type="submit" class="secondary">Delete</button>
+  <button type="submit" class="button button-danger">Delete note</button>
 </form>
 {% endblock %}

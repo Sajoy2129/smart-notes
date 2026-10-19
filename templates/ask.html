@@ -1,35 +1,37 @@
-{% extends "base.html" %}
+{% extends "layout.html" %}
 
 {% block title %}Ask – Smart Notes{% endblock %}
 
 {% block content %}
 <h1>Ask your notes</h1>
 
-<form method="post">
-  <label>
-    Question
-    <input name="question" value="{{ question }}" placeholder="When is the timber delivery?" required>
-  </label>
-  <button type="submit">Ask</button>
+<form class="card form ask-form" method="post">
+  <label for="question">Question</label>
+  <div class="ask-row">
+    <input id="question" name="question" value="{{ question }}" required
+           placeholder="When is the timber delivery?">
+    <button class="button" type="submit">Ask</button>
+  </div>
 </form>
 
 {% if error %}
-  <p role="alert"><strong>{{ error }}</strong></p>
+  <p class="alert" role="alert">{{ error }}</p>
 {% endif %}
 
 {% if answer %}
-  <article>
-    <p style="white-space: pre-wrap">{{ answer }}</p>
-  </article>
+  <section class="summary-box">
+    <span class="label">AI answer</span>
+    <p class="answer">{{ answer }}</p>
+  </section>
 {% endif %}
 
 {% if sources %}
-  <h2>{% if answer %}From these notes{% else %}Matching notes{% endif %}</h2>
-  <ul>
+  <h2 class="label section-heading">{% if answer %}From these notes{% else %}Matching notes{% endif %}</h2>
+  <ul class="source-list card">
     {% for note in sources %}
       <li>
         <a href="{{ url_for('view_note', note_id=note.id) }}">{{ note.title }}</a>
-        <small>({{ note.created_at | nice_date }})</small>
+        <span class="muted">{{ note.created_at | time_ago }}</span>
       </li>
     {% endfor %}
   </ul>

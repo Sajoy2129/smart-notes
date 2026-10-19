@@ -1,3 +1,5 @@
+from datetime import date, timedelta
+
 import ai
 import db
 
@@ -175,17 +177,10 @@ def test_note_page_layout_has_summary_checklist_and_tag_labels(client, monkeypat
     view = client.get("/note/1").data.decode()
 
     # Summary comes first, then action items, then tags.
-    assert view.index('class="summary"') < view.index('class="checklist"') < view.index('class="tags"')
+    assert view.index("AI summary") < view.index('class="checklist') < view.index('class="tags"')
     assert '<span class="tag">painting</span>' in view
     assert '<span class="tag">client</span>' in view
     assert 'type="checkbox"' in view
-
-
-def test_stylesheet_is_linked_and_served(client):
-    client.post("/new", data={"title": "Call", "body": "Rang."})
-
-    assert b"/static/style.css" in client.get("/note/1").data
-    assert client.get("/static/style.css").status_code == 200
 
 
 def test_home_uses_new_design(client):
@@ -200,9 +195,39 @@ def test_home_uses_new_design(client):
     assert client.get("/static/app.css").status_code == 200
 
 
-def test_other_pages_keep_old_design_for_now(client):
-    assert b"/static/app.css" not in client.get("/new").data
-    assert b"/static/app.css" not in client.get("/ask").data
+def test_every_page_uses_new_design(client):
+    client.post("/new", data={"title": "Call", "body": "Rang."})
+
+    for url in ["/", "/new", "/note/1", "/ask", "/note/999"]:
+        page = client.get(url).data
+        assert b"/static/app.css" in page, url
+        assert b"pico" not in page, url
+
+
+def test_saving_shows_note_saved_message_once(client):
+    response = client.post("/new", data={"title": "Call", "body": "Rang."}, follow_redirects=True)
+
+    assert "Note saved ✓" in response.data.decode()
+    # A flash message is shown once, then removed.
+    assert "Note saved ✓" not in client.get("/note/1").data.decode()
+
+
+def test_new_note_page_has_spinner_text(client):
+    assert "Claude is reading your note…" in client.get("/new").data.decode()
+
+
+def test_delete_button_is_red(client):
+    client.post("/new", data={"title": "Call", "body": "Rang."})
+
+    assert b'class="button button-danger"' in client.get("/note/1").data
+
+
+def test_missing_page_is_friendly(client):
+    response = client.get("/note/999")
+
+    assert response.status_code == 404
+    assert b"Page not found" in response.data
+    assert b"Back to your notes" in response.data
 
 
 def test_home_cards_show_time_ago_and_tags(client, monkeypatch):
@@ -300,7 +325,21 @@ def test_no_due_date_shows_nothing(client, monkeypatch):
     ])
 
     assert "Book scaffolding" in page
-    assert "due" not in page.split("Book scaffolding")[1].split("</label>")[0]
+    assert "due" not in page.split("Book scaffolding")[1].split("</li>")[0]
+
+
+def test_overdue_and_due_soon_chips_are_coloured(client, monkeypatch):
+    today = date.today()
+    page = save_with_items(client, monkeypatch, [
+        {"task": "Old job", "owner": "Sam", "due_date": "last week",
+         "due_date_iso": (today - timedelta(days=7)).isoformat()},
+        {"task": "Urgent job", "owner": None, "due_date": "tomorrow",
+         "due_date_iso": (today + timedelta(days=1)).isoformat()},
+    ])
+
+    assert 'class="chip chip-overdue"' in page
+    assert 'class="chip chip-due-soon"' in page
+    assert '<span class="chip">Sam</span>' in page
 
 
 # ---------- Ask page ----------

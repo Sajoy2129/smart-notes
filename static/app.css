@@ -1,5 +1,5 @@
 /* Smart Notes – shared styles, following DESIGN.md.
-   Used by templates/layout.html. Pages switch over to it one at a time. */
+   Loaded by templates/layout.html, which every page extends. */
 
 /* ---------- Design tokens: every colour and size lives here ---------- */
 :root {
@@ -266,9 +266,205 @@ main.container {
 /* ---------- AI summary box ---------- */
 .summary-box {
   padding: 1rem 1.25rem;
+  margin-bottom: 2rem;
   background: var(--summary-bg);
   border: 1px solid #d6e4f5;
   border-radius: var(--radius);
+}
+
+.summary-box p {
+  margin: 0.35rem 0 0;
+}
+
+.summary-box .answer {
+  white-space: pre-wrap; /* keep Claude's line breaks */
+}
+
+/* ---------- Note page ---------- */
+.page-header .muted {
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.section-heading {
+  display: block;
+  margin: 0 0 0.6rem;
+}
+
+.checklist {
+  padding: 0 1.25rem;
+  margin: 0 0 2rem;
+  list-style: none;
+}
+
+.checklist li {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.checklist li:last-child {
+  border-bottom: none;
+}
+
+.checklist input[type="checkbox"] {
+  flex-shrink: 0;
+  width: 1.1rem;
+  height: 1.1rem;
+  margin: 0.15rem 0 0;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.tags + .section-heading,
+.muted + .section-heading {
+  margin-top: 2rem;
+}
+
+.note-body {
+  padding: 1rem 1.25rem;
+  margin: 0 0 2rem;
+  font-family: inherit;
+  font-size: 0.95rem;
+  white-space: pre-wrap; /* keep line breaks, wrap long lines */
+}
+
+/* ---------- Forms ---------- */
+.form {
+  display: flex;
+  flex-direction: column;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.form label {
+  margin-bottom: 0.35rem;
+  font-weight: 600;
+}
+
+.form input,
+.form textarea {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 1rem;
+  font: inherit;
+  color: var(--text);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.form input:focus,
+.form textarea:focus {
+  border-color: var(--navy);
+  outline: 2px solid rgba(30, 58, 95, 0.15);
+}
+
+.form textarea {
+  resize: vertical;
+}
+
+.form-actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+/* Ask page: input and button side by side */
+.ask-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.ask-row input {
+  margin-bottom: 0;
+}
+
+/* ---------- Spinner: a circle with one coloured side, turning ---------- */
+.saving {
+  display: inline-flex;
+  gap: 0.5rem;
+  align-items: center;
+  color: var(--muted);
+}
+
+.saving[hidden] {
+  display: none; /* our display above would otherwise beat the hidden attribute */
+}
+
+.spinner {
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid var(--border);
+  border-top-color: var(--navy);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---------- Messages ---------- */
+.alert {
+  padding: 0.75rem 1rem;
+  margin: 0 0 1.5rem;
+  color: var(--overdue);
+  background: #fdf1ef;
+  border: 1px solid #f2c4bd;
+  border-radius: var(--radius);
+}
+
+/* "Note saved ✓": waits 3 seconds, then fades out over half a second */
+.toast {
+  padding: 0.6rem 1rem;
+  margin: 0 0 1.25rem;
+  font-weight: 600;
+  color: var(--done);
+  background: #edf7f0;
+  border: 1px solid #bfe3cb;
+  border-radius: var(--radius);
+  animation: fade-out 0.5s ease 3s forwards;
+}
+
+@keyframes fade-out {
+  to { opacity: 0; visibility: hidden; }
+}
+
+/* ---------- Ask page sources ---------- */
+.source-list {
+  padding: 0 1.25rem;
+  margin: 0;
+  list-style: none;
+}
+
+.source-list li {
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.source-list li:last-child {
+  border-bottom: none;
+}
+
+.source-list a {
+  font-weight: 600;
+  text-decoration: none;
 }
 
 /* ---------- Empty state ---------- */
@@ -297,5 +493,9 @@ main.container {
 
   .search input {
     width: 100%;
+  }
+
+  .ask-row {
+    flex-direction: column;
   }
 }

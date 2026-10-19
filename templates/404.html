@@ -1,0 +1,11 @@
+{% extends "layout.html" %}
+
+{% block title %}Not found – Smart Notes{% endblock %}
+
+{% block content %}
+<div class="empty-state card">
+  <p class="empty-title">Page not found</p>
+  <p>If you were looking for a note, it may have been deleted.</p>
+  <a class="button" href="{{ url_for('index') }}">Back to your notes</a>
+</div>
+{% endblock %}

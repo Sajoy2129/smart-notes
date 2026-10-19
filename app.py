@@ -3,15 +3,16 @@
 Run with:  flask --app app run --debug
 """
 
+import os
 from datetime import datetime
 
-from flask import Flask, abort, redirect, render_template, request, url_for
+from flask import Flask, abort, flash, redirect, render_template, request, url_for
 
 import ai
 import db
 import search
 from timeago import time_ago
-from weeks import week_label
+from weeks import due_status, week_label
 
 
 def create_app(db_path=db.DEFAULT_DB_PATH):
@@ -21,6 +22,9 @@ def create_app(db_path=db.DEFAULT_DB_PATH):
     # Only answer requests addressed to this Mac. Blocks "DNS rebinding", where another
     # website points its own name at 127.0.0.1 to get past the Origin check below.
     app.config["TRUSTED_HOSTS"] = ["localhost", "127.0.0.1"]
+    # flash() messages are kept in a signed cookie, which needs a secret key. A random one
+    # is fine here: it only means a message is lost if the server restarts mid-redirect.
+    app.secret_key = os.urandom(32)
     db.init_db(db_path)
 
     @app.template_filter("nice_date")
@@ -30,6 +34,11 @@ def create_app(db_path=db.DEFAULT_DB_PATH):
 
     app.add_template_filter(week_label)
     app.add_template_filter(time_ago)
+    app.add_template_filter(due_status)
+
+    @app.errorhandler(404)
+    def not_found(error):
+        return render_template("404.html"), 404
 
     # CSRF protection: browsers send an Origin header with form posts. If it names
     # another website, that site is trying to act as you (e.g. delete notes), so refuse.
@@ -66,6 +75,7 @@ def create_app(db_path=db.DEFAULT_DB_PATH):
             db.save_analysis(
                 db_path, note_id, analysis["summary"], analysis["action_items"], analysis["tags"]
             )
+        flash("Note saved ✓")
         return redirect(url_for("view_note", note_id=note_id))
 
     @app.route("/note/<int:note_id>")

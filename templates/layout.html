@@ -27,6 +27,10 @@
     </div>
   </header>
   <main class="container">
+    {# Messages from flash(), e.g. "Note saved ✓". CSS fades them out after 3 seconds. #}
+    {% for message in get_flashed_messages() %}
+      <p class="toast" role="status">{{ message }}</p>
+    {% endfor %}
     {% block content %}{% endblock %}
   </main>
 </body>

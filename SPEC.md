@@ -68,7 +68,7 @@ Rules for the AI:
 - Due dates: keep the text as written; when the note mentions a date, also
   work out the real date (from the note's created date) and show its week
   number, e.g. "next Friday (24 Oct, week 43)"
-- Styling: Pico.css
+- Styling: custom CSS in static/app.css, following DESIGN.md (replaced Pico.css)
 - Title and note text are both required
 - Ask "Are you sure?" before deleting a note
 - If the Claude API call fails (network error or invalid JSON), try once more
