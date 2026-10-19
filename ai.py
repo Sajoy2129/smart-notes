@@ -7,6 +7,7 @@ Neither raises: if anything goes wrong they return None, so the app keeps workin
 
 import json
 import logging
+import os
 from datetime import date, datetime
 
 import anthropic
@@ -92,6 +93,9 @@ class InvalidReplyError(Exception):
 def _make_client():
     """Create the API client, reading ANTHROPIC_API_KEY from .env."""
     load_dotenv()
+    # Without a key the SDK only fails later, with a TypeError, so check for it here.
+    if not os.getenv("ANTHROPIC_API_KEY"):
+        raise anthropic.AnthropicError("ANTHROPIC_API_KEY is not set")
     # max_retries=0: we do our own single retry below, so the SDK shouldn't add more.
     return anthropic.Anthropic(max_retries=0, timeout=60.0)
 

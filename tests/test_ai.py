@@ -10,6 +10,9 @@ import ai
 
 CREATED_AT = "2026-10-18T10:00:00"
 
+# Saved when this file is imported, before conftest.py blocks _make_client for each test.
+REAL_MAKE_CLIENT = ai._make_client
+
 GOOD_REPLY = {
     "summary": "The client wants the hallway painted. Paint arrives Monday.",
     "action_items": [
@@ -164,6 +167,16 @@ def test_missing_api_key_returns_none(monkeypatch):
         raise anthropic.AnthropicError("no API key")
 
     monkeypatch.setattr(ai, "_make_client", no_key)
+
+    assert ai.analyze_note("t", "b", CREATED_AT) is None
+
+
+def test_missing_api_key_with_real_client_returns_none(monkeypatch):
+    # Uses the real _make_client, so we test how the real SDK behaves without a key.
+    monkeypatch.setattr(ai, "_make_client", REAL_MAKE_CLIENT)
+    monkeypatch.setattr(ai, "load_dotenv", lambda: None)  # don't reload the key from .env
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
 
     assert ai.analyze_note("t", "b", CREATED_AT) is None
 
