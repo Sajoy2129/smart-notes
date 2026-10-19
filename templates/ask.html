@@ -30,7 +30,7 @@
   <ul class="source-list card">
     {% for note in sources %}
       <li>
-        <a href="{{ url_for('view_note', note_id=note.id) }}">{{ note.title }}</a>
+        <a href="{{ url_for('view_note', note_id=note.id) }}">{{ note | note_heading }}</a>
         <span class="muted">{{ note.created_at | time_ago }}</span>
       </li>
     {% endfor %}

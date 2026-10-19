@@ -155,10 +155,102 @@ main.container {
   border-radius: var(--radius);
 }
 
-/* Note cards in a grid: as many 260px+ columns as fit, so 3 on a laptop, 1 on a phone */
+/* ---------- Projects page: sidebar on the left, notes on the right ---------- */
+.container-wide {
+  max-width: 1100px;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+.sidebar .label {
+  display: block;
+  margin: 0 0 0.6rem;
+}
+
+.project-list {
+  padding: 0;
+  margin: 0 0 1rem;
+  list-style: none;
+}
+
+.project-list a {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.45rem 0.75rem;
+  color: var(--text);
+  text-decoration: none;
+  border-radius: var(--radius);
+}
+
+.project-list a:hover {
+  background: var(--tag-bg);
+}
+
+.project-list a[aria-current="page"] {
+  font-weight: 600;
+  color: #fff;
+  background: var(--navy);
+}
+
+.project-list .count {
+  font-size: 0.85rem;
+  opacity: 0.7;
+}
+
+.new-project {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.new-project input {
+  flex: 1;
+  min-width: 0; /* lets the box shrink inside the narrow sidebar */
+  padding: 0.4rem 0.6rem;
+  font: inherit;
+  font-size: 0.9rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+
+.button-small {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+/* Add-note box at the top of a project */
+.quick-add {
+  padding: 0.9rem 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.quick-add textarea {
+  width: 100%;
+  padding: 0;
+  margin-bottom: 0.5rem;
+  font: inherit;
+  color: var(--text);
+  resize: vertical;
+  border: none;
+  outline: none;
+}
+
+.quick-add .form-actions {
+  justify-content: flex-end;
+}
+
+.empty-hint {
+  margin-top: 1rem;
+}
+
+/* ---------- Note cards in a grid: as many 240px+ columns as fit ---------- */
 .note-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 1rem;
   padding: 0;
   margin: 0;
@@ -168,57 +260,64 @@ main.container {
 .note-card {
   display: flex;
   flex-direction: column;
-  height: 100%; /* cards in the same row are the same height */
-  padding: 1.1rem 1.25rem;
-  color: inherit;
-  text-decoration: none;
-  transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s;
+  padding: 1rem 1.1rem 0.8rem;
+  transition: box-shadow 0.15s, border-color 0.15s;
 }
 
 .note-card:hover {
   border-color: #c9d3e0;
   box-shadow: 0 4px 14px rgba(30, 58, 95, 0.08);
-  transform: translateY(-2px); /* lifts slightly */
 }
 
-.note-title {
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: var(--navy);
-}
-
-/* Both take the spare space, which pushes the tags to the bottom of the card */
-.note-snippet,
-.note-tasks {
+/* The text and date: takes the spare space, so the footer sits at the bottom */
+.note-link {
   flex-grow: 1;
-  margin: 0.6rem 0 0.9rem;
-  font-size: 0.95rem;
+  margin-bottom: 0.75rem;
+  color: inherit;
+  text-decoration: none;
 }
 
-.note-snippet {
-  color: var(--muted);
-}
-
-/* Action items as bullets, one line each */
-.note-tasks {
-  padding-left: 0;
-}
-
-.note-tasks li {
-  list-style: disc inside; /* solid dot (not the nested-list circle), inside the box so overflow can't hide it */
+.note-text {
+  /* Show at most 5 lines, ending with "…" */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+  margin: 0 0 0.5rem;
   overflow: hidden;
-  text-overflow: ellipsis; /* long tasks end with "…" */
-  white-space: nowrap;
+  white-space: pre-line; /* keep the note's line breaks */
 }
 
-.note-tasks li::marker {
-  color: var(--navy);
+.note-card-footer {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-end;
+  justify-content: space-between;
 }
 
-.note-tasks .more {
-  font-size: 0.85rem;
-  color: var(--muted);
-  list-style: none;
+.button-complete {
+  flex-shrink: 0;
+  white-space: nowrap; /* keep "✓ Complete" on one line */
+  padding: 0.2rem 0.6rem;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--done);
+  cursor: pointer;
+  background: none;
+  border: 1px solid var(--done);
+  border-radius: 999px;
+}
+
+.button-complete:hover {
+  color: #fff;
+  background: var(--done);
+}
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+  text-decoration: none;
 }
 
 /* ---------- Small grey text: dates and labels ---------- */
@@ -427,16 +526,28 @@ main.container {
   border-radius: var(--radius);
 }
 
-/* "Note saved ✓": waits 3 seconds, then fades out over half a second */
+/* "Note saved ✓": floats in the top-right corner (so nothing on the page moves),
+   waits 3 seconds, then fades out over half a second */
 .toast {
+  position: fixed;
+  top: 68px;
+  right: 16px;
+  z-index: 10; /* above the page content */
   padding: 0.6rem 1rem;
-  margin: 0 0 1.25rem;
+  margin: 0;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
   font-weight: 600;
   color: var(--done);
   background: #edf7f0;
   border: 1px solid #bfe3cb;
   border-radius: var(--radius);
   animation: fade-out 0.5s ease 3s forwards;
+}
+
+.toast-error {
+  color: var(--overdue);
+  background: #fdf1ef;
+  border-color: #f2c4bd;
 }
 
 @keyframes fade-out {
@@ -497,5 +608,26 @@ main.container {
 
   .ask-row {
     flex-direction: column;
+  }
+}
+
+@media (max-width: 760px) {
+  .workspace {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  /* Projects become a row of chips instead of a tall list */
+  .project-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .project-list a {
+    gap: 0.5rem;
+    padding: 0.3rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
   }
 }

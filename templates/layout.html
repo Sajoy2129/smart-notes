@@ -8,14 +8,13 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="container topbar-inner">
+    {# self.container_class() repeats the page's width class, so the bar lines up with it #}
+    <div class="container topbar-inner {{ self.container_class() }}">
       <a class="brand" href="{{ url_for('index') }}">Smart Notes</a>
       <nav class="nav-links">
         {# aria-current marks the page you're on, for styling and screen readers #}
         <a href="{{ url_for('index') }}"
-           {% if request.endpoint == 'index' %}aria-current="page"{% endif %}>Notes</a>
-        <a href="{{ url_for('new_note') }}"
-           {% if request.endpoint == 'new_note' %}aria-current="page"{% endif %}>New Note</a>
+           {% if request.endpoint in ('index', 'view_project') %}aria-current="page"{% endif %}>Projects</a>
         <a href="{{ url_for('ask') }}"
            {% if request.endpoint == 'ask' %}aria-current="page"{% endif %}>Ask</a>
       </nav>
@@ -26,10 +25,10 @@
       </form>
     </div>
   </header>
-  <main class="container">
+  <main class="container {% block container_class %}{% endblock %}">
     {# Messages from flash(), e.g. "Note saved ✓". CSS fades them out after 3 seconds. #}
-    {% for message in get_flashed_messages() %}
-      <p class="toast" role="status">{{ message }}</p>
+    {% for category, message in get_flashed_messages(with_categories=true) %}
+      <p class="toast toast-{{ category }}" role="status">{{ message }}</p>
     {% endfor %}
     {% block content %}{% endblock %}
   </main>

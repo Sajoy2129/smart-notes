@@ -1,12 +1,16 @@
 {% extends "layout.html" %}
 
-{% block title %}{{ note.title }} – Smart Notes{% endblock %}
+{% block title %}{{ note | note_heading }} – Smart Notes{% endblock %}
 
 {% block content %}
+{% if project %}
+  <a class="back-link" href="{{ url_for('view_project', project_id=project.id) }}">← {{ project.name }}</a>
+{% endif %}
 <div class="page-header">
   <div>
-    <h1>{{ note.title }}</h1>
+    <h1>{{ note | note_heading }}</h1>
     <time class="muted" datetime="{{ note.created_at }}">{{ note.created_at | nice_date }}</time>
+    {% if note.completed_at %}<span class="chip chip-done">✓ Completed</span>{% endif %}
   </div>
 </div>
 
@@ -61,8 +65,15 @@
 <h2 class="label section-heading">Original note</h2>
 <pre class="note-body card">{{ note.body }}</pre>
 
-<form method="post" action="{{ url_for('delete_note', note_id=note.id) }}"
-      onsubmit="return confirm('Delete this note? This cannot be undone.');">
-  <button type="submit" class="button button-danger">Delete note</button>
-</form>
+<div class="form-actions">
+  {% if not note.completed_at %}
+    <form method="post" action="{{ url_for('complete_note', note_id=note.id) }}">
+      <button type="submit" class="button">✓ Complete</button>
+    </form>
+  {% endif %}
+  <form method="post" action="{{ url_for('delete_note', note_id=note.id) }}"
+        onsubmit="return confirm('Delete this note? This cannot be undone.');">
+    <button type="submit" class="button button-danger">Delete note</button>
+  </form>
+</div>
 {% endblock %}

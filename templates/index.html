@@ -1,46 +1,18 @@
 {% extends "layout.html" %}
 
-{% block content %}
-<div class="page-header">
-  <h1>Your notes</h1>
-  <a class="button" href="{{ url_for('new_note') }}">New Note</a>
-</div>
+{# Shown only when there are no projects yet; otherwise "/" opens the first project. #}
+{% block container_class %}container-wide{% endblock %}
 
-{% if notes %}
-  <ul class="note-grid">
-    {% for note in notes %}
-      <li>
-        <a class="note-card card" href="{{ url_for('view_note', note_id=note.id) }}">
-          <span class="note-title">{{ note.title }}</span>
-          <time class="muted" datetime="{{ note.created_at }}"
-                title="{{ note.created_at | nice_date }}">{{ note.created_at | time_ago }}</time>
-          {% if note.action_items %}
-            <ul class="note-tasks">
-              {% for item in note.action_items[:3] %}<li>{{ item.task }}</li>{% endfor %}
-              {% if note.action_items | length > 3 %}
-                <li class="more">+{{ note.action_items | length - 3 }} more</li>
-              {% endif %}
-            </ul>
-          {% elif note.summary %}
-            <p class="note-snippet">No action items</p>
-          {% else %}
-            <p class="note-snippet"><em>No AI summary yet</em></p>
-          {% endif %}
-          {% if note.tags %}
-            <div class="tags">
-              {% for tag in note.tags %}<span class="tag">{{ tag }}</span>{% endfor %}
-            </div>
-          {% endif %}
-        </a>
-      </li>
-    {% endfor %}
-  </ul>
-{% else %}
-  <div class="empty-state card">
-    <p class="empty-title">No notes yet</p>
-    <p>Write down a meeting, a site visit or a phone call.<br>
-       Claude will summarize it and pull out the action items for you.</p>
-    <a class="button" href="{{ url_for('new_note') }}">Write your first note</a>
-  </div>
-{% endif %}
+{% block content %}
+<div class="workspace">
+  {% include "_sidebar.html" %}
+
+  <section>
+    <div class="empty-state card">
+      <p class="empty-title">Welcome to Smart Notes</p>
+      <p>Start by adding a project on the left, for example a job, a client or a site.<br>
+         Then write notes inside it. Claude will summarize them and pull out the action items.</p>
+    </div>
+  </section>
+</div>
 {% endblock %}

@@ -1,0 +1,23 @@
+{# The projects list on the left. Used by index.html and project.html. #}
+<aside class="sidebar">
+  <h2 class="label">Projects</h2>
+  {% if projects %}
+    <ul class="project-list">
+      {% for item in projects %}
+        <li>
+          <a href="{{ url_for('view_project', project_id=item.id) }}"
+             {% if project and project.id == item.id %}aria-current="page"{% endif %}>
+            <span>{{ item.name }}</span>
+            <span class="count">{{ item.open_count }}</span>
+          </a>
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  <form class="new-project" method="post" action="{{ url_for('create_project') }}">
+    <input name="name" placeholder="+ New project" maxlength="60" required
+           aria-label="New project name">
+    <button class="button button-small" type="submit">Add</button>
+  </form>
+</aside>

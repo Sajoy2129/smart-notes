@@ -239,9 +239,11 @@ def _format_notes(notes):
     """Put each note in <note> tags with its id, so Claude can say which it used."""
     parts = []
     for note in notes:
+        # Notes written inside a project have no title, so skip the empty line.
+        title_line = f"Title: {note['title']}\n" if note["title"] else ""
         parts.append(
             f'<note id="{note["id"]}">\n'
-            f"Title: {note['title']}\n"
+            f"{title_line}"
             f"Written on: {_written_on(note['created_at'])}\n\n"
             f"{note['body']}\n"
             f"</note>"
