@@ -89,4 +89,4 @@ Rules for the AI:
 - [ ] A note with no tasks gets an empty action item list
 - [ ] Notes still save when the API is unavailable
 - [ ] The Ask page answers from my notes and admits when it can't find something
-- [ ] The code-reviewer agent finds no serious problems
+- [x] The code-reviewer agent finds no serious problems
