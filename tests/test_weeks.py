@@ -1,6 +1,8 @@
+from datetime import date
+
 import pytest
 
-from weeks import week_label
+from weeks import due_status, week_label
 
 
 def test_normal_date():
@@ -28,3 +30,21 @@ def test_year_boundaries(iso_date, expected):
 @pytest.mark.parametrize("bad_value", [None, "", "next Friday", "2026-13-01", "2026-02-30"])
 def test_missing_or_invalid_date_returns_none(bad_value):
     assert week_label(bad_value) is None
+
+
+TODAY = date(2026, 10, 19)
+
+
+@pytest.mark.parametrize(
+    "iso_date, expected",
+    [
+        ("2026-10-18", "overdue"),   # yesterday
+        ("2026-10-19", "due-soon"),  # today
+        ("2026-10-21", "due-soon"),  # in 2 days
+        ("2026-10-22", None),        # in 3 days: not soon yet
+        (None, None),
+        ("next Friday", None),
+    ],
+)
+def test_due_status(iso_date, expected):
+    assert due_status(iso_date, today=TODAY) == expected

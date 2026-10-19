@@ -15,3 +15,23 @@ def week_label(iso_date):
         return None
     week = day.isocalendar().week
     return f"{day.day} {day:%b}, week {week}"
+
+
+DUE_SOON_DAYS = 2  # today, tomorrow and the day after count as "due soon"
+
+
+def due_status(iso_date, today=None):
+    """Return "overdue", "due-soon" or None, used to colour the due date chip.
+
+    `today` can be passed in so tests always get the same answer.
+    """
+    try:
+        day = date.fromisoformat(iso_date)
+    except (TypeError, ValueError):
+        return None
+    today = today or date.today()
+    if day < today:
+        return "overdue"
+    if (day - today).days <= DUE_SOON_DAYS:
+        return "due-soon"
+    return None
