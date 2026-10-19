@@ -18,6 +18,9 @@ def create_app(db_path=db.DEFAULT_DB_PATH):
     """Build the Flask app. Tests pass in a temporary database path."""
     app = Flask(__name__)
     app.config["DATABASE"] = db_path
+    # Only answer requests addressed to this Mac. Blocks "DNS rebinding", where another
+    # website points its own name at 127.0.0.1 to get past the Origin check below.
+    app.config["TRUSTED_HOSTS"] = ["localhost", "127.0.0.1"]
     db.init_db(db_path)
 
     @app.template_filter("nice_date")

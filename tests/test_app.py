@@ -101,6 +101,22 @@ def test_post_from_another_website_is_blocked(client, db_path):
     assert db.get_note(db_path, 1) is not None
 
 
+def test_request_for_another_host_is_rejected(client, db_path):
+    # DNS rebinding: evil.com is made to point at this Mac, so Host and Origin
+    # both say evil.com and match each other. Only localhost names are allowed.
+    client.post("/new", data={"title": "Call", "body": "Rang."})
+    headers = {"Host": "evil.com:5000", "Origin": "http://evil.com:5000"}
+
+    assert client.post("/note/1/delete", headers=headers).status_code == 400
+    assert client.get("/", headers={"Host": "evil.com:5000"}).status_code == 400
+    assert db.get_note(db_path, 1) is not None
+
+
+def test_local_addresses_are_allowed(client):
+    assert client.get("/", headers={"Host": "127.0.0.1:5000"}).status_code == 200
+    assert client.get("/", headers={"Host": "localhost:5001"}).status_code == 200
+
+
 def test_post_from_our_own_pages_is_allowed(client, db_path):
     client.post("/new", data={"title": "Call", "body": "Rang."})
 
