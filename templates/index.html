@@ -1,20 +1,39 @@
-{% extends "base.html" %}
+{% extends "layout.html" %}
 
 {% block content %}
-<h1>Your notes</h1>
+<div class="page-header">
+  <h1>Your notes</h1>
+  <a class="button" href="{{ url_for('new_note') }}">New Note</a>
+</div>
 
-{% for note in notes %}
-  <article>
-    <h3><a href="{{ url_for('view_note', note_id=note.id) }}">{{ note.title }}</a></h3>
-    <small>{{ note.created_at | nice_date }}</small>
-    {% if note.tags %}
-      <p>{% for tag in note.tags %}<mark>{{ tag }}</mark> {% endfor %}</p>
-    {% endif %}
-    {% if note.summary %}
-      <p>{{ note.summary.splitlines()[0] }}</p>
-    {% endif %}
-  </article>
+{% if notes %}
+  <ul class="note-list card">
+    {% for note in notes %}
+      <li>
+        <a class="note-row" href="{{ url_for('view_note', note_id=note.id) }}">
+          <div class="note-row-top">
+            <span class="note-title">{{ note.title }}</span>
+            <time class="muted" datetime="{{ note.created_at }}"
+                  title="{{ note.created_at | nice_date }}">{{ note.created_at | time_ago }}</time>
+          </div>
+          {% if note.summary %}
+            <p class="note-snippet">{{ note.summary.splitlines()[0] }}</p>
+          {% endif %}
+          {% if note.tags %}
+            <div class="tags">
+              {% for tag in note.tags %}<span class="tag">{{ tag }}</span>{% endfor %}
+            </div>
+          {% endif %}
+        </a>
+      </li>
+    {% endfor %}
+  </ul>
 {% else %}
-  <p>No notes yet. <a href="{{ url_for('new_note') }}">Write your first one.</a></p>
-{% endfor %}
+  <div class="empty-state card">
+    <p class="empty-title">No notes yet</p>
+    <p>Write down a meeting, a site visit or a phone call.<br>
+       Claude will summarize it and pull out the action items for you.</p>
+    <a class="button" href="{{ url_for('new_note') }}">Write your first note</a>
+  </div>
+{% endif %}
 {% endblock %}

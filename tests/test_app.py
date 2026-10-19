@@ -166,8 +166,42 @@ def test_note_page_layout_has_summary_checklist_and_tag_labels(client, monkeypat
 
 
 def test_stylesheet_is_linked_and_served(client):
-    assert b"/static/style.css" in client.get("/").data
+    client.post("/new", data={"title": "Call", "body": "Rang."})
+
+    assert b"/static/style.css" in client.get("/note/1").data
     assert client.get("/static/style.css").status_code == 200
+
+
+def test_home_uses_new_design(client):
+    home = client.get("/").data
+
+    assert b"/static/app.css" in home
+    assert b"pico" not in home  # the home page no longer loads Pico
+    assert b'class="topbar"' in home
+    assert b'name="question"' in home  # search box in the top bar
+    assert client.get("/static/app.css").status_code == 200
+
+
+def test_other_pages_keep_old_design_for_now(client):
+    assert b"/static/app.css" not in client.get("/new").data
+    assert b"/static/app.css" not in client.get("/ask").data
+
+
+def test_home_rows_show_time_ago_and_tag_pills(client, monkeypatch):
+    monkeypatch.setattr(ai, "analyze_note", lambda *args: FAKE_ANALYSIS)
+    client.post("/new", data={"title": "Site visit", "body": "Priya to send sample."})
+
+    home = client.get("/").data
+
+    assert b"just now" in home
+    assert b'<span class="tag">painting</span>' in home
+
+
+def test_home_empty_state_has_button(client):
+    home = client.get("/").data
+
+    assert b'class="empty-state card"' in home
+    assert b"Write your first note" in home
 
 
 def test_note_still_saved_when_api_fails(client, db_path, monkeypatch):

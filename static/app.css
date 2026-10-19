@@ -1,0 +1,282 @@
+/* Smart Notes – shared styles, following DESIGN.md.
+   Used by templates/layout.html. Pages switch over to it one at a time. */
+
+/* ---------- Design tokens: every colour and size lives here ---------- */
+:root {
+  --navy: #1e3a5f;
+  --navy-dark: #152b47;
+  --bg: #f6f7f9;
+  --card: #ffffff;
+  --border: #e3e6eb;
+  --summary-bg: #eef4fb;
+  --text: #1f2933;
+  --muted: #6b7280;
+  --tag-bg: #eceff3;
+
+  --overdue: #c0392b;
+  --due-soon: #d68910;
+  --done: #1e8449;
+
+  --radius: 8px;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* ---------- Base ---------- */
+* {
+  box-sizing: border-box; /* width includes padding and border: easier layouts */
+}
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+}
+
+a {
+  color: var(--navy);
+}
+
+h1 {
+  margin: 0 0 1.25rem;
+  font-size: 1.6rem;
+}
+
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+main.container {
+  padding-top: 2rem;
+  padding-bottom: 3rem;
+}
+
+/* ---------- Top bar ---------- */
+.topbar {
+  color: #fff;
+  background: var(--navy);
+}
+
+.topbar-inner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+  align-items: center;
+  min-height: 56px;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.brand {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fff;
+  text-decoration: none;
+}
+
+.nav-links {
+  display: flex;
+  gap: 1.25rem;
+}
+
+.nav-links a {
+  color: rgba(255, 255, 255, 0.8);
+  text-decoration: none;
+}
+
+.nav-links a:hover,
+.nav-links a[aria-current="page"] {
+  color: #fff;
+  text-decoration: underline;
+  text-underline-offset: 6px;
+}
+
+.search {
+  margin-left: auto; /* pushes the search box to the right */
+}
+
+.search input {
+  width: 220px;
+  padding: 0.4rem 0.75rem;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--text);
+  border: none;
+  border-radius: var(--radius);
+}
+
+/* ---------- Buttons ---------- */
+.button {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  font: inherit;
+  font-weight: 600;
+  color: #fff;
+  text-decoration: none;
+  cursor: pointer;
+  background: var(--navy);
+  border: none;
+  border-radius: var(--radius);
+}
+
+.button:hover {
+  background: var(--navy-dark);
+}
+
+.button-danger {
+  background: var(--overdue);
+}
+
+.button-danger:hover {
+  background: #a93226;
+}
+
+/* ---------- Page header: title on the left, button on the right ---------- */
+.page-header {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+
+.page-header h1 {
+  margin: 0;
+}
+
+/* ---------- Cards and note rows ---------- */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.note-list {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.note-row {
+  display: block;
+  padding: 1rem 1.25rem;
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid var(--border);
+}
+
+.note-list li:last-child .note-row {
+  border-bottom: none;
+}
+
+.note-row:hover {
+  background: #fafbfc;
+}
+
+.note-row-top {
+  display: flex;
+  gap: 1rem;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.note-title {
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.note-snippet {
+  margin: 0.25rem 0 0.5rem;
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis; /* long summaries end with "…" */
+  white-space: nowrap;
+}
+
+/* ---------- Small grey text: dates and labels ---------- */
+.muted,
+.label {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.label {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ---------- Tags and chips ---------- */
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.tag,
+.chip {
+  display: inline-block;
+  padding: 0.1rem 0.6rem;
+  font-size: 0.8rem;
+  border-radius: 999px; /* very round = pill shape */
+}
+
+.tag {
+  color: var(--text);
+  background: var(--tag-bg);
+}
+
+.chip {
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
+.chip-overdue { color: var(--overdue); border-color: var(--overdue); }
+.chip-due-soon { color: var(--due-soon); border-color: var(--due-soon); }
+.chip-done { color: var(--done); border-color: var(--done); }
+
+/* ---------- AI summary box ---------- */
+.summary-box {
+  padding: 1rem 1.25rem;
+  background: var(--summary-bg);
+  border: 1px solid #d6e4f5;
+  border-radius: var(--radius);
+}
+
+/* ---------- Empty state ---------- */
+.empty-state {
+  padding: 3rem 1.5rem;
+  text-align: center;
+}
+
+.empty-state p {
+  margin: 0 0 1.25rem;
+  color: var(--muted);
+}
+
+.empty-state .empty-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* ---------- Phone screens ---------- */
+@media (max-width: 600px) {
+  .search {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .search input {
+    width: 100%;
+  }
+
+  .note-row-top {
+    flex-direction: column;
+    gap: 0;
+  }
+}

@@ -10,6 +10,7 @@ from flask import Flask, abort, redirect, render_template, request, url_for
 import ai
 import db
 import search
+from timeago import time_ago
 from weeks import week_label
 
 
@@ -25,6 +26,7 @@ def create_app(db_path=db.DEFAULT_DB_PATH):
         return datetime.fromisoformat(iso_text).strftime("%d %b %Y, %H:%M")
 
     app.add_template_filter(week_label)
+    app.add_template_filter(time_ago)
 
     # CSRF protection: browsers send an Origin header with form posts. If it names
     # another website, that site is trying to act as you (e.g. delete notes), so refuse.

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Smart Notes{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <a class="brand" href="{{ url_for('index') }}">Smart Notes</a>
+      <nav class="nav-links">
+        {# aria-current marks the page you're on, for styling and screen readers #}
+        <a href="{{ url_for('index') }}"
+           {% if request.endpoint == 'index' %}aria-current="page"{% endif %}>Notes</a>
+        <a href="{{ url_for('new_note') }}"
+           {% if request.endpoint == 'new_note' %}aria-current="page"{% endif %}>New Note</a>
+        <a href="{{ url_for('ask') }}"
+           {% if request.endpoint == 'ask' %}aria-current="page"{% endif %}>Ask</a>
+      </nav>
+      {# Search uses the Ask page: it finds matching notes and answers from them #}
+      <form class="search" method="post" action="{{ url_for('ask') }}" role="search">
+        <input type="search" name="question" placeholder="Search your notes…"
+               aria-label="Search your notes">
+      </form>
+    </div>
+  </header>
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>
