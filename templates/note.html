@@ -6,38 +6,51 @@
 <h1>{{ note.title }}</h1>
 <small>{{ note.created_at | nice_date }}</small>
 
-<h2>Summary</h2>
-{% if note.summary %}
-  <p>{{ note.summary }}</p>
-{% else %}
-  <p><em>AI summary not available</em></p>
-{% endif %}
+<section class="summary">
+  <h2 class="section-title">Summary</h2>
+  {% if note.summary %}
+    <p>{{ note.summary }}</p>
+  {% else %}
+    <p><em>AI summary not available</em></p>
+  {% endif %}
+</section>
 
-<h2>Action items</h2>
+<h2 class="section-title">Action items</h2>
 {% if note.action_items %}
-  {% for item in note.action_items %}
-    <label>
-      <input type="checkbox" disabled>
-      {{ item.task }}
-      {% if item.owner %}— {{ item.owner }}{% endif %}
-      {% set week = item.due_date_iso | week_label %}
-      {% if item.due_date and week %}· due {{ item.due_date }} ({{ week }})
-      {% elif item.due_date %}· due {{ item.due_date }}
-      {% elif week %}· due {{ week }}
-      {% endif %}
-    </label>
-  {% endfor %}
+  <ul class="checklist">
+    {% for item in note.action_items %}
+      <li>
+        <input type="checkbox" disabled aria-label="Done">
+        <div>
+          {{ item.task }}
+          {% set week = item.due_date_iso | week_label %}
+          {% if item.owner or item.due_date or week %}
+            <span class="meta">
+              {% if item.owner %}{{ item.owner }}{% endif %}
+              {% if item.owner and (item.due_date or week) %}·{% endif %}
+              {% if item.due_date and week %}due {{ item.due_date }} ({{ week }})
+              {% elif item.due_date %}due {{ item.due_date }}
+              {% elif week %}due {{ week }}
+              {% endif %}
+            </span>
+          {% endif %}
+        </div>
+      </li>
+    {% endfor %}
+  </ul>
 {% else %}
   <p>No action items.</p>
 {% endif %}
 
 {% if note.tags %}
-  <h2>Tags</h2>
-  <p>{% for tag in note.tags %}<mark>{{ tag }}</mark> {% endfor %}</p>
+  <h2 class="section-title">Tags</h2>
+  <div class="tags">
+    {% for tag in note.tags %}<span class="tag">{{ tag }}</span>{% endfor %}
+  </div>
 {% endif %}
 
-<h2>Original note</h2>
-<pre style="white-space: pre-wrap">{{ note.body }}</pre>
+<h2 class="section-title">Original note</h2>
+<pre class="note-body">{{ note.body }}</pre>
 
 <form method="post" action="{{ url_for('delete_note', note_id=note.id) }}"
       onsubmit="return confirm('Delete this note? This cannot be undone.');">

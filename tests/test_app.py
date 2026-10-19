@@ -152,6 +152,24 @@ def test_ai_results_show_on_pages(client, monkeypatch):
     assert b"AI summary not available" not in view
 
 
+def test_note_page_layout_has_summary_checklist_and_tag_labels(client, monkeypatch):
+    monkeypatch.setattr(ai, "analyze_note", lambda *args: FAKE_ANALYSIS)
+    client.post("/new", data={"title": "Site visit", "body": "Priya to send sample."})
+
+    view = client.get("/note/1").data.decode()
+
+    # Summary comes first, then action items, then tags.
+    assert view.index('class="summary"') < view.index('class="checklist"') < view.index('class="tags"')
+    assert '<span class="tag">painting</span>' in view
+    assert '<span class="tag">client</span>' in view
+    assert 'type="checkbox"' in view
+
+
+def test_stylesheet_is_linked_and_served(client):
+    assert b"/static/style.css" in client.get("/").data
+    assert client.get("/static/style.css").status_code == 200
+
+
 def test_note_still_saved_when_api_fails(client, db_path, monkeypatch):
     monkeypatch.setattr(ai, "analyze_note", lambda *args: None)
 
