@@ -318,9 +318,12 @@ def test_request_for_another_host_is_rejected(client, db_path, project_id):
     assert db.get_note(db_path, 1) is not None
 
 
-def test_local_addresses_are_allowed(client):
-    assert client.get("/", headers={"Host": "127.0.0.1:5000"}).status_code == 200
-    assert client.get("/", headers={"Host": "localhost:5001"}).status_code == 200
+def test_local_addresses_are_allowed(logged_out_client):
+    # Accepted means sent on to the login page, not rejected with 400.
+    for host in ["127.0.0.1:5000", "localhost:5001"]:
+        response = logged_out_client.get("/", headers={"Host": host})
+        assert response.status_code == 302
+        assert "/login" in response.location
 
 
 def test_post_from_our_own_pages_is_allowed(client, db_path, project_id):

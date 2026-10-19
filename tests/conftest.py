@@ -5,16 +5,27 @@ A fixture is a helper pytest runs before a test and passes in by name.
 
 import anthropic
 import pytest
+from werkzeug.security import generate_password_hash
 
 import ai
 import app as app_module
 import db
 
-TEST_SETTINGS = {"SECRET_KEY": "test-secret-key"}
+TEST_PASSWORD = "correct horse battery staple"
+# Real password hashes are slow on purpose, to make guessing expensive. Tests log in
+# hundreds of times, so they use a fast method. Never use this for a real password.
+TEST_PASSWORD_HASH = generate_password_hash(TEST_PASSWORD, method="pbkdf2:sha256:1")
+TEST_SETTINGS = {
+    "SECRET_KEY": "test-secret-key",
+    "PASSWORD_HASH": TEST_PASSWORD_HASH,
+    "LOGIN_FAIL_DELAY": 0,  # don't make the tests wait
+}
 
 # Environment variables the app reads. Cleared for every test, so a test never
 # depends on what's set on the machine running it.
-APP_ENV_VARS = ["SECRET_KEY", "DATABASE_PATH", "RENDER", "RENDER_EXTERNAL_HOSTNAME"]
+APP_ENV_VARS = [
+    "SECRET_KEY", "APP_PASSWORD_HASH", "DATABASE_PATH", "RENDER", "RENDER_EXTERNAL_HOSTNAME"
+]
 
 
 @pytest.fixture(autouse=True)
@@ -48,10 +59,17 @@ def db_path(tmp_path):
 
 
 @pytest.fixture
-def client(db_path):
+def logged_out_client(db_path):
     """A fake browser that sends requests to the app without a real server."""
     from app import create_app
 
     app = create_app(db_path, TEST_SETTINGS)
     app.config["TESTING"] = True
     return app.test_client()
+
+
+@pytest.fixture
+def client(logged_out_client):
+    """The same fake browser, already logged in. Most tests use this one."""
+    logged_out_client.post("/login", data={"password": TEST_PASSWORD})
+    return logged_out_client

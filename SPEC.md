@@ -7,7 +7,12 @@ summary, pulls out action items, and adds tags. I can also ask questions
 across all my notes and get answers that show which notes they came from.
 
 ## Who uses it
-Just me, on my own Mac. No login needed in version 1.
+Just me. Version 1 ran only on my own Mac. It is now also online (Render),
+so every page needs a login: one password, no usernames and no sign-up.
+- **Log in (/login)**: a password box. A wrong password waits 1 second, then
+  says "Wrong password." After logging in I go back to the page I asked for,
+  and I stay logged in for 30 days.
+- **Log out**: a button in the top bar.
 
 ## Pages
 - **Home (/) – All notes**: open notes from every project as cards, newest

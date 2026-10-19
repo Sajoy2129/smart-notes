@@ -11,6 +11,8 @@
     {# self.container_class() repeats the page's width class, so the bar lines up with it #}
     <div class="container topbar-inner {{ self.container_class() }}">
       <a class="brand" href="{{ url_for('index') }}">Smart Notes</a>
+      {# Logged out (the login page), only the name is shown #}
+      {% if session.logged_in %}
       <nav class="nav-links">
         {# aria-current marks the page you're on, for styling and screen readers #}
         <a href="{{ url_for('index') }}"
@@ -23,6 +25,11 @@
         <input type="search" name="question" placeholder="Ask your notes…"
                aria-label="Ask a question about your notes">
       </form>
+      {# A form, not a link: logging out changes something, so it must be a POST #}
+      <form method="post" action="{{ url_for('logout') }}">
+        <button class="logout" type="submit">Log out</button>
+      </form>
+      {% endif %}
     </div>
   </header>
   <main class="container {% block container_class %}{% endblock %}">

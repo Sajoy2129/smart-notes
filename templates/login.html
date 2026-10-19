@@ -1,0 +1,22 @@
+{% extends "layout.html" %}
+
+{% block title %}Log in – Smart Notes{% endblock %}
+
+{% block content %}
+<div class="login-box">
+  <h1>Log in</h1>
+
+  {% if error %}
+    <p class="alert" role="alert">{{ error }}</p>
+  {% endif %}
+
+  {# No action attribute: the form posts back to this URL, keeping ?next=… #}
+  <form class="card form" method="post">
+    <label for="password">Password</label>
+    {# autocomplete lets a password manager fill it in #}
+    <input id="password" name="password" type="password" required autofocus
+           autocomplete="current-password">
+    <button class="button" type="submit">Log in</button>
+  </form>
+</div>
+{% endblock %}

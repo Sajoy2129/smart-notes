@@ -109,6 +109,28 @@ main.container {
   border-radius: var(--radius);
 }
 
+/* Looks like the nav links, but it's a button because logging out is a POST */
+.logout {
+  padding: 0;
+  font: inherit;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+
+.logout:hover {
+  color: #fff;
+  text-decoration: underline;
+  text-underline-offset: 6px;
+}
+
+/* ---------- Login page ---------- */
+.login-box {
+  max-width: 360px;
+  margin: 3rem auto 0;
+}
+
 /* ---------- Buttons ---------- */
 .button {
   display: inline-block;

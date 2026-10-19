@@ -5,11 +5,15 @@ Settings come from environment variables; locally they are read from .env.
 """
 
 import os
-from datetime import datetime
+import time
+from datetime import datetime, timedelta
 
 from dotenv import load_dotenv
-from flask import Flask, abort, flash, redirect, render_template, request, url_for
+from flask import (
+    Flask, abort, flash, redirect, render_template, request, session, url_for
+)
 from werkzeug.middleware.proxy_fix import ProxyFix
+from werkzeug.security import check_password_hash
 
 import ai
 import db
@@ -20,6 +24,15 @@ from weeks import due_status, week_label
 HEADING_LENGTH = 60  # notes without a title use their first line, cut to this length
 MAX_PROJECT_NAME = 60
 LOCAL_HOSTS = ["localhost", "127.0.0.1"]
+# Settings the app can't run safely without, and the environment variable for each.
+REQUIRED_SETTINGS = {"SECRET_KEY": "SECRET_KEY", "PASSWORD_HASH": "APP_PASSWORD_HASH"}
+# Pages anyone may see without logging in ("static" serves the CSS).
+PUBLIC_ENDPOINTS = {"login", "static"}
+
+HOW_TO_MAKE = {
+    "SECRET_KEY": 'python3 -c "import secrets; print(secrets.token_hex(32))"',
+    "APP_PASSWORD_HASH": "the password command in PLAN.md, section 3",
+}
 
 
 def load_settings(db_path=None):
@@ -42,6 +55,12 @@ def load_settings(db_path=None):
         # Signs the session cookie (flash messages, and later the login). It must stay
         # the same across restarts and stay secret, so it can't be made up here.
         "SECRET_KEY": os.getenv("SECRET_KEY"),
+        # The login password, stored only as a hash (a one-way scramble of it).
+        "PASSWORD_HASH": os.getenv("APP_PASSWORD_HASH"),
+        # Stay logged in for 30 days instead of until the browser closes.
+        "PERMANENT_SESSION_LIFETIME": timedelta(days=30),
+        # Seconds to wait after a wrong password, so guessing is slow.
+        "LOGIN_FAIL_DELAY": 1,
         "DATABASE": db_path or os.getenv("DATABASE_PATH", db.DEFAULT_DB_PATH),
         "TRUSTED_HOSTS": hosts,
         # Online the site is HTTPS only, so the cookie must never travel over plain HTTP.
@@ -63,12 +82,12 @@ def create_app(db_path=None, test_config=None):
         app.config.update(test_config)
 
     # Fail fast: refusing to start is better than running with a missing secret.
-    if not app.config["SECRET_KEY"]:
-        raise RuntimeError(
-            "SECRET_KEY is not set. Add it to .env (locally) or to the Render "
-            'environment. Make one with: python3 -c "import secrets; '
-            'print(secrets.token_hex(32))"'
-        )
+    for setting, env_name in REQUIRED_SETTINGS.items():
+        if not app.config[setting]:
+            raise RuntimeError(
+                f"{env_name} is not set. Add it to .env (locally) or to the Render "
+                f"environment. Make it with: {HOW_TO_MAKE[env_name]}"
+            )
 
     if app.config["ON_RENDER"]:
         # Render's proxy receives the HTTPS request and passes it on as plain HTTP,
@@ -107,6 +126,47 @@ def create_app(db_path=None, test_config=None):
         origin = request.headers.get("Origin")
         if request.method == "POST" and origin and origin != request.host_url.rstrip("/"):
             abort(403)
+
+    # Registered after the Origin check, so the login form is protected by it too.
+    @app.before_request
+    def require_login():
+        """Send every request to the login page unless I'm logged in.
+
+        One central check, so a new page can't forget to be protected.
+        """
+        if request.routing_exception is not None:
+            # Flask already knows this request fails (e.g. 400 for an untrusted host),
+            # and url_for() can't work for it. Let Flask show that error.
+            return None
+        if session.get("logged_in") or request.endpoint in PUBLIC_ENDPOINTS:
+            return None
+        return redirect(url_for("login", next=request.full_path.rstrip("?")))
+
+    @app.route("/login", methods=["GET", "POST"])
+    def login():
+        next_url = safe_next_url(request.args.get("next"))
+        if session.get("logged_in"):
+            return redirect(next_url)
+        if request.method == "GET":
+            return render_template("login.html")
+
+        password = request.form.get("password", "")
+        if not check_password_hash(app.config["PASSWORD_HASH"], password):
+            time.sleep(app.config["LOGIN_FAIL_DELAY"])
+            # 401 = unauthorized: the page is shown again with the error.
+            return render_template("login.html", error="Wrong password."), 401
+
+        session.clear()  # start a fresh session for the logged-in user
+        session["logged_in"] = True
+        session.permanent = True  # keep it for PERMANENT_SESSION_LIFETIME
+        return redirect(next_url)
+
+    # POST only, like Delete: a link (GET) must never change anything.
+    @app.route("/logout", methods=["POST"])
+    def logout():
+        session.clear()
+        flash("Logged out")
+        return redirect(url_for("login"))
 
     @app.route("/")
     def index():
@@ -265,3 +325,14 @@ def create_app(db_path=None, test_config=None):
         return back_to_project(note)
 
     return app
+
+
+def safe_next_url(next_url):
+    """Where to go after logging in: a page on this site, or home.
+
+    Only accepts paths like "/ask". "//evil.com" or "https://evil.com" would send me
+    to another site after logging in (an "open redirect"), so those go home instead.
+    """
+    if next_url and next_url.startswith("/") and not next_url.startswith(("//", "/\\")):
+        return next_url
+    return url_for("index")
