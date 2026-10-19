@@ -26,6 +26,14 @@ def create_app(db_path=db.DEFAULT_DB_PATH):
 
     app.add_template_filter(week_label)
 
+    # CSRF protection: browsers send an Origin header with form posts. If it names
+    # another website, that site is trying to act as you (e.g. delete notes), so refuse.
+    @app.before_request
+    def block_cross_site_posts():
+        origin = request.headers.get("Origin")
+        if request.method == "POST" and origin and origin != request.host_url.rstrip("/"):
+            abort(403)
+
     @app.route("/")
     def index():
         notes = db.list_notes(app.config["DATABASE"])

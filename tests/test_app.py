@@ -91,6 +91,25 @@ def test_delete_missing_note_returns_404(client):
     assert client.post("/note/999/delete").status_code == 404
 
 
+def test_post_from_another_website_is_blocked(client, db_path):
+    # CSRF: a different site's page tries to submit a form to our app.
+    client.post("/new", data={"title": "Call", "body": "Rang."})
+
+    response = client.post("/note/1/delete", headers={"Origin": "https://evil.example"})
+
+    assert response.status_code == 403  # 403 = forbidden
+    assert db.get_note(db_path, 1) is not None
+
+
+def test_post_from_our_own_pages_is_allowed(client, db_path):
+    client.post("/new", data={"title": "Call", "body": "Rang."})
+
+    response = client.post("/note/1/delete", headers={"Origin": "http://localhost"})
+
+    assert response.status_code == 302
+    assert db.get_note(db_path, 1) is None
+
+
 FAKE_ANALYSIS = {
     "summary": "Priya will send a colour sample.\nTom books scaffolding.",
     "action_items": [
