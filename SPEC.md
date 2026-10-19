@@ -11,7 +11,7 @@ Just me, on my own Mac. No login needed in version 1.
 
 ## Pages
 - **Home (/)**: list of all notes, newest first. Each shows title, date,
-  tags, and the first line of the summary. A "New note" button at the top.
+  tags, and its action items as bullet points. A "New note" button at the top.
 - **New note (/new)**: a form with a title and a large text box for the note.
   A "Save" button.
 - **View note (/note/<id>)**: shows the summary at the top, then action

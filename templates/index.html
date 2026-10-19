@@ -14,17 +14,20 @@
           <span class="note-title">{{ note.title }}</span>
           <time class="muted" datetime="{{ note.created_at }}"
                 title="{{ note.created_at | nice_date }}">{{ note.created_at | time_ago }}</time>
-          {% if note.summary %}
-            <p class="note-snippet">{{ note.summary.splitlines()[0] }}</p>
+          {% if note.action_items %}
+            <ul class="note-tasks">
+              {% for item in note.action_items[:3] %}<li>{{ item.task }}</li>{% endfor %}
+              {% if note.action_items | length > 3 %}
+                <li class="more">+{{ note.action_items | length - 3 }} more</li>
+              {% endif %}
+            </ul>
+          {% elif note.summary %}
+            <p class="note-snippet">No action items</p>
           {% else %}
             <p class="note-snippet"><em>No AI summary yet</em></p>
           {% endif %}
-          {% set task_count = note.action_items | length %}
-          {% if note.tags or task_count %}
+          {% if note.tags %}
             <div class="tags">
-              {% if task_count %}
-                <span class="chip chip-tasks">{{ task_count }} action item{{ "s" if task_count != 1 }}</span>
-              {% endif %}
               {% for tag in note.tags %}<span class="tag">{{ tag }}</span>{% endfor %}
             </div>
           {% endif %}

@@ -145,8 +145,8 @@ def test_ai_results_show_on_pages(client, monkeypatch):
     home = client.get("/").data
     view = client.get("/note/1").data
 
-    assert b"Priya will send a colour sample." in home
-    assert b"Tom books scaffolding." not in home  # home shows only the first line
+    assert b"<li>Send colour sample</li>" in home  # action items as bullets
+    assert b"Priya will send a colour sample." not in home  # summary is only on the note page
     assert b"Send colour sample" in view
     assert b"Priya" in view
     assert b"AI summary not available" not in view
@@ -187,7 +187,7 @@ def test_other_pages_keep_old_design_for_now(client):
     assert b"/static/app.css" not in client.get("/ask").data
 
 
-def test_home_cards_show_time_ago_and_chips(client, monkeypatch):
+def test_home_cards_show_time_ago_and_tags(client, monkeypatch):
     monkeypatch.setattr(ai, "analyze_note", lambda *args: FAKE_ANALYSIS)
     client.post("/new", data={"title": "Site visit", "body": "Priya to send sample."})
 
@@ -196,17 +196,38 @@ def test_home_cards_show_time_ago_and_chips(client, monkeypatch):
     assert b'class="note-card card"' in home
     assert b"just now" in home
     assert b'<span class="tag">painting</span>' in home
-    assert b"1 action item<" in home  # singular: "item", not "items"
 
 
-def test_home_card_without_ai_has_no_task_chip(client, monkeypatch):
+def test_home_card_shows_first_three_tasks_then_more(client, monkeypatch):
+    tasks = [{"task": f"Task {n}", "owner": None, "due_date": None, "due_date_iso": None}
+             for n in range(1, 6)]
+    analysis = {"summary": "Busy day.", "action_items": tasks, "tags": ["work"]}
+    monkeypatch.setattr(ai, "analyze_note", lambda *args: analysis)
+    client.post("/new", data={"title": "Busy", "body": "Lots to do."})
+
+    home = client.get("/").data
+
+    assert b"<li>Task 3</li>" in home
+    assert b"Task 4" not in home
+    assert b"+2 more" in home
+
+
+def test_home_card_with_no_tasks_says_so(client, monkeypatch):
+    analysis = {"summary": "Just a chat.", "action_items": [], "tags": ["chat"]}
+    monkeypatch.setattr(ai, "analyze_note", lambda *args: analysis)
+    client.post("/new", data={"title": "Chat", "body": "Talked."})
+
+    assert b"No action items" in client.get("/").data
+
+
+def test_home_card_without_ai_says_no_summary(client, monkeypatch):
     monkeypatch.setattr(ai, "analyze_note", lambda *args: None)
     client.post("/new", data={"title": "Call", "body": "Rang."})
 
     home = client.get("/").data
 
     assert b"No AI summary yet" in home
-    assert b"action item" not in home
+    assert b"No action items" not in home
 
 
 def test_home_empty_state_has_button(client):

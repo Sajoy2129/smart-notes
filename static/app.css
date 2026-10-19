@@ -187,16 +187,38 @@ main.container {
   color: var(--navy);
 }
 
-.note-snippet {
-  /* Show at most 2 lines, ending with "…" */
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  flex-grow: 1; /* pushes the chips to the bottom of the card */
+/* Both take the spare space, which pushes the tags to the bottom of the card */
+.note-snippet,
+.note-tasks {
+  flex-grow: 1;
   margin: 0.6rem 0 0.9rem;
-  overflow: hidden;
   font-size: 0.95rem;
+}
+
+.note-snippet {
   color: var(--muted);
+}
+
+/* Action items as bullets, one line each */
+.note-tasks {
+  padding-left: 0;
+}
+
+.note-tasks li {
+  list-style: disc inside; /* solid dot (not the nested-list circle), inside the box so overflow can't hide it */
+  overflow: hidden;
+  text-overflow: ellipsis; /* long tasks end with "…" */
+  white-space: nowrap;
+}
+
+.note-tasks li::marker {
+  color: var(--navy);
+}
+
+.note-tasks .more {
+  font-size: 0.85rem;
+  color: var(--muted);
+  list-style: none;
 }
 
 /* ---------- Small grey text: dates and labels ---------- */
@@ -237,7 +259,6 @@ main.container {
   border: 1px solid var(--border);
 }
 
-.chip-tasks { color: var(--navy); border-color: var(--navy); font-weight: 600; }
 .chip-overdue { color: var(--overdue); border-color: var(--overdue); }
 .chip-due-soon { color: var(--due-soon); border-color: var(--due-soon); }
 .chip-done { color: var(--done); border-color: var(--done); }
