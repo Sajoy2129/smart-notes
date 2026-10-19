@@ -102,9 +102,9 @@ Rules for the AI:
 - Putting the app online
 
 ## Version 1 is done when
-- [ ] I can create projects, and create, view, list, complete and delete notes
-- [ ] Every new note gets a summary, action items and tags
-- [ ] A note with no tasks gets an empty action item list
-- [ ] Notes still save when the API is unavailable
-- [ ] The Ask page answers from my notes and admits when it can't find something
+- [x] I can create projects, and create, view, list, complete and delete notes
+- [x] Every new note gets a summary, action items and tags
+- [x] A note with no tasks gets an empty action item list
+- [x] Notes still save when the API is unavailable
+- [x] The Ask page answers from my notes and admits when it can't find something
 - [x] The code-reviewer agent finds no serious problems
