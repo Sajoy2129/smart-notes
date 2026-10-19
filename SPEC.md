@@ -10,13 +10,16 @@ across all my notes and get answers that show which notes they came from.
 Just me, on my own Mac. No login needed in version 1.
 
 ## Pages
-- **Home (/)**: list of all notes, newest first. Each shows title, date,
-  tags, and its action items as bullet points. A "New note" button at the top.
-- **New note (/new)**: a form with a title and a large text box for the note.
-  A "Save" button.
+- **Home (/)**: opens the first project. With no projects yet, shows a
+  welcome message.
+- **Projects sidebar**: on the left of the home page, a list of my projects
+  (A–Z, with how many open notes each has) and a box to add a new project.
+- **Project (/project/<id>)**: a text box at the top to add a note (no title
+  needed), then the project's open notes as cards, newest first. Each card
+  shows the note text, date, tags and a "Complete" button.
 - **View note (/note/<id>)**: shows the summary at the top, then action
   items as a checklist, then tags, then the original note text.
-  A "Delete" button.
+  "Complete" and "Delete" buttons, and a link back to the project.
 - **Ask (/ask)**: a text box to ask a question about my notes. Shows the
   answer and links to the notes it used.
 
@@ -41,14 +44,21 @@ Rules for the AI:
 - If the answer isn't in the notes, say: "I couldn't find that in your notes."
 - Show which notes were used, with links.
 
+## Data to store for each project
+- id
+- name
+- created date and time
+
 ## Data to store for each note
 - id
-- title
+- project it belongs to
+- title (empty for notes written inside a project; older notes keep theirs)
 - original text
 - created date and time
 - summary
 - action items (stored as JSON)
 - tags (stored as JSON)
+- completed date and time (empty while the note is open)
 
 ## Error handling
 - If the Claude API fails when saving (no internet, wrong key, etc.),
@@ -69,13 +79,19 @@ Rules for the AI:
   work out the real date (from the note's created date) and show its week
   number, e.g. "next Friday (24 Oct, week 43)"
 - Styling: custom CSS in static/app.css, following DESIGN.md (replaced Pico.css)
-- Title and note text are both required
+- Notes belong to a project; only the note text is required (no title).
+  Claude gets the project name as context instead of a title
+- Completing a note hides it from its project but keeps it in the database
+  (the Ask page can still find it)
+- Notes from before projects existed were moved into a "General" project
 - Ask "Are you sure?" before deleting a note
 - If the Claude API call fails (network error or invalid JSON), try once more
 - Tests use pytest and never call the real API
 
 ## Not in version 1
-- Marking action items as done
+- Marking single action items as done (a whole note can be completed)
+- Seeing or reopening completed notes
+- Renaming or deleting projects
 - A page listing all open action items
 - Filtering by tag
 - Editing notes
@@ -84,7 +100,7 @@ Rules for the AI:
 - Putting the app online
 
 ## Version 1 is done when
-- [ ] I can create, view, list and delete notes
+- [ ] I can create projects, and create, view, list, complete and delete notes
 - [ ] Every new note gets a summary, action items and tags
 - [ ] A note with no tasks gets an empty action item list
 - [ ] Notes still save when the API is unavailable
