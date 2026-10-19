@@ -19,10 +19,10 @@
         <a href="{{ url_for('ask') }}"
            {% if request.endpoint == 'ask' %}aria-current="page"{% endif %}>Ask</a>
       </nav>
-      {# Search uses the Ask page: it finds matching notes and answers from them #}
-      <form class="search" method="post" action="{{ url_for('ask') }}" role="search">
-        <input type="search" name="question" placeholder="Search your notes…"
-               aria-label="Search your notes">
+      {# Sends the question to the Ask page, which finds matching notes and asks Claude #}
+      <form class="search" method="post" action="{{ url_for('ask') }}">
+        <input type="search" name="question" placeholder="Ask your notes…"
+               aria-label="Ask a question about your notes">
       </form>
     </div>
   </header>

@@ -194,7 +194,9 @@ def test_home_uses_new_design(client):
     assert b"/static/app.css" in home
     assert b"pico" not in home  # the home page no longer loads Pico
     assert b'class="topbar"' in home
-    assert b'name="question"' in home  # search box in the top bar
+    assert b'name="question"' in home  # ask box in the top bar
+    assert b'placeholder="Ask your notes' in home  # it asks Claude, so don't call it "search"
+    assert b"Search your notes" not in home
     assert client.get("/static/app.css").status_code == 200
 
 
