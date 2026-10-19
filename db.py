@@ -11,17 +11,37 @@ from datetime import datetime
 
 DEFAULT_DB_PATH = "smart_notes.db"
 
+GENERAL_PROJECT = "General"  # where notes from before projects existed are put
+
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS projects (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS notes (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    title        TEXT NOT NULL,
+    title        TEXT NOT NULL,  -- '' for notes written inside a project
     body         TEXT NOT NULL,
     created_at   TEXT NOT NULL,
     summary      TEXT,
     action_items TEXT,
-    tags         TEXT
-)
+    tags         TEXT,
+    project_id   INTEGER REFERENCES projects(id),
+    completed_at TEXT  -- NULL while the note is open
+);
 """
+
+# Columns added after version 1. Old databases get them through ALTER TABLE.
+NEW_NOTE_COLUMNS = {
+    "project_id": "INTEGER REFERENCES projects(id)",
+    "completed_at": "TEXT",
+}
+
+
+def _now():
+    return datetime.now().isoformat(timespec="seconds")
 
 
 def _connect(db_path):
@@ -40,28 +60,60 @@ def _row_to_note(row):
 
 
 def init_db(db_path=DEFAULT_DB_PATH):
-    """Create the notes table if it doesn't exist yet."""
+    """Create the tables if needed, and upgrade a database from before projects.
+
+    Safe to run every time the app starts: each step only does something
+    when it's still needed.
+    """
     with closing(_connect(db_path)) as conn, conn:
-        conn.execute(SCHEMA)
+        conn.executescript(SCHEMA)
+        _add_missing_columns(conn)
+        _move_loose_notes_to_general(conn)
 
 
-def create_note(db_path, title, body, summary=None, action_items=None, tags=None):
+def _add_missing_columns(conn):
+    """An old notes table was created without the newer columns: add them."""
+    existing = {row["name"] for row in conn.execute("PRAGMA table_info(notes)")}
+    for name, column_type in NEW_NOTE_COLUMNS.items():
+        if name not in existing:
+            # Names come from our own NEW_NOTE_COLUMNS, never from user input.
+            conn.execute(f"ALTER TABLE notes ADD COLUMN {name} {column_type}")
+
+
+def _move_loose_notes_to_general(conn):
+    """Notes without a project (from before projects existed) go into "General"."""
+    if conn.execute("SELECT 1 FROM notes WHERE project_id IS NULL LIMIT 1").fetchone() is None:
+        return
+    row = conn.execute("SELECT id FROM projects WHERE name = ?", (GENERAL_PROJECT,)).fetchone()
+    if row:
+        project_id = row["id"]
+    else:
+        project_id = conn.execute(
+            "INSERT INTO projects (name, created_at) VALUES (?, ?)", (GENERAL_PROJECT, _now())
+        ).lastrowid
+    conn.execute("UPDATE notes SET project_id = ? WHERE project_id IS NULL", (project_id,))
+
+
+def create_note(
+    db_path, title, body, summary=None, action_items=None, tags=None, project_id=None
+):
     """Save a new note and return its id.
 
     summary is None when the AI step failed or hasn't run.
     """
-    created_at = datetime.now().isoformat(timespec="seconds")
     with closing(_connect(db_path)) as conn, conn:
         cursor = conn.execute(
-            "INSERT INTO notes (title, body, created_at, summary, action_items, tags) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO notes "
+            "(title, body, created_at, summary, action_items, tags, project_id) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
             (
                 title,
                 body,
-                created_at,
+                _now(),
                 summary,
                 json.dumps(action_items or []),
                 json.dumps(tags or []),
+                project_id,
             ),
         )
         return cursor.lastrowid
@@ -97,3 +149,57 @@ def list_notes(db_path):
             "SELECT * FROM notes ORDER BY created_at DESC, id DESC"
         ).fetchall()
     return [_row_to_note(row) for row in rows]
+
+
+def complete_note(db_path, note_id):
+    """Mark a note as done. It stays in the database but leaves its project's list.
+
+    Return True if the note exists, False otherwise.
+    """
+    with closing(_connect(db_path)) as conn, conn:
+        cursor = conn.execute(
+            "UPDATE notes SET completed_at = ? WHERE id = ?", (_now(), note_id)
+        )
+        return cursor.rowcount > 0
+
+
+def list_project_notes(db_path, project_id):
+    """Return a project's open (not completed) notes, newest first."""
+    with closing(_connect(db_path)) as conn:
+        rows = conn.execute(
+            "SELECT * FROM notes WHERE project_id = ? AND completed_at IS NULL "
+            "ORDER BY created_at DESC, id DESC",
+            (project_id,),
+        ).fetchall()
+    return [_row_to_note(row) for row in rows]
+
+
+# ---------- Projects ----------
+
+def create_project(db_path, name):
+    """Save a new project and return its id."""
+    with closing(_connect(db_path)) as conn, conn:
+        cursor = conn.execute(
+            "INSERT INTO projects (name, created_at) VALUES (?, ?)", (name, _now())
+        )
+        return cursor.lastrowid
+
+
+def get_project(db_path, project_id):
+    """Return one project as a dict, or None if it doesn't exist."""
+    with closing(_connect(db_path)) as conn:
+        row = conn.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def list_projects(db_path):
+    """Return all projects A-Z, each with open_count: how many open notes it has."""
+    with closing(_connect(db_path)) as conn:
+        rows = conn.execute(
+            "SELECT projects.*, COUNT(notes.id) AS open_count "
+            "FROM projects "
+            "LEFT JOIN notes ON notes.project_id = projects.id AND notes.completed_at IS NULL "
+            "GROUP BY projects.id "
+            "ORDER BY projects.name COLLATE NOCASE"
+        ).fetchall()
+    return [dict(row) for row in rows]
