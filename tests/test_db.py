@@ -169,3 +169,34 @@ def test_open_notes_from_all_projects_newest_first_with_project_name(db_path):
 
     assert [note["id"] for note in notes] == [second, first]
     assert [note["project_name"] for note in notes] == ["Office", "Harbour Road"]
+
+
+# ---------- Daily AI limit ----------
+
+def test_ai_jobs_are_counted_up_to_the_limit(db_path):
+    results = [db.use_ai_job(db_path, 2, day="2026-10-20") for _ in range(3)]
+
+    assert results == [True, True, False]
+    assert db.ai_jobs_used(db_path, "2026-10-20") == 2  # the refused job wasn't counted
+
+
+def test_ai_limit_resets_on_a_new_day(db_path):
+    db.use_ai_job(db_path, 1, day="2026-10-20")
+
+    assert db.use_ai_job(db_path, 1, day="2026-10-20") is False
+    assert db.use_ai_job(db_path, 1, day="2026-10-21") is True
+
+
+def test_ai_limit_of_zero_allows_nothing(db_path):
+    assert db.use_ai_job(db_path, 0, day="2026-10-20") is False
+    assert db.ai_jobs_used(db_path, "2026-10-20") == 0
+
+
+def test_ai_usage_table_is_added_to_an_old_database(tmp_path):
+    path = tmp_path / "old.db"
+    with sqlite3.connect(path) as conn:
+        conn.execute("CREATE TABLE notes (id INTEGER PRIMARY KEY, title TEXT, body TEXT)")
+
+    db.init_db(path)
+
+    assert db.use_ai_job(path, 5) is True

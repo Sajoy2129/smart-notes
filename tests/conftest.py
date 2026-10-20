@@ -24,7 +24,8 @@ TEST_SETTINGS = {
 # Environment variables the app reads. Cleared for every test, so a test never
 # depends on what's set on the machine running it.
 APP_ENV_VARS = [
-    "SECRET_KEY", "APP_PASSWORD_HASH", "DATABASE_PATH", "RENDER", "RENDER_EXTERNAL_HOSTNAME"
+    "SECRET_KEY", "APP_PASSWORD_HASH", "DATABASE_PATH", "RENDER", "RENDER_EXTERNAL_HOSTNAME",
+    "AI_DAILY_LIMIT",
 ]
 
 

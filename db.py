@@ -7,7 +7,7 @@ temporary database instead of the real one.
 import json
 import sqlite3
 from contextlib import closing
-from datetime import datetime
+from datetime import date, datetime
 
 DEFAULT_DB_PATH = "smart_notes.db"
 
@@ -30,6 +30,12 @@ CREATE TABLE IF NOT EXISTS notes (
     tags         TEXT,
     project_id   INTEGER REFERENCES projects(id),
     completed_at TEXT  -- NULL while the note is open
+);
+
+-- How many AI jobs (note analyses or answers) ran each day, for the daily limit.
+CREATE TABLE IF NOT EXISTS ai_usage (
+    day  TEXT PRIMARY KEY,  -- e.g. '2026-10-20'
+    jobs INTEGER NOT NULL
 );
 """
 
@@ -215,3 +221,30 @@ def list_open_notes(db_path):
             "ORDER BY notes.created_at DESC, notes.id DESC"
         ).fetchall()
     return [_row_to_note(row) for row in rows]
+
+
+# ---------- Daily AI limit ----------
+
+def use_ai_job(db_path, limit, day=None):
+    """Count one AI job for today. Return False, counting nothing, if the limit is reached.
+
+    It's one SQL statement, so two requests at the same moment can't both slip under
+    the limit. "Upsert": insert today's row with 1 job, or, if the row already exists,
+    add 1, but only while jobs < limit. Tests pass in day to check a new day resets.
+    """
+    day = day or date.today().isoformat()
+    with closing(_connect(db_path)) as conn, conn:
+        cursor = conn.execute(
+            "INSERT INTO ai_usage (day, jobs) SELECT ?, 1 WHERE ? > 0 "
+            "ON CONFLICT(day) DO UPDATE SET jobs = jobs + 1 WHERE jobs < ?",
+            (day, limit, limit),
+        )
+        return cursor.rowcount == 1  # 0 rows changed means the limit was reached
+
+
+def ai_jobs_used(db_path, day=None):
+    """How many AI jobs have run on a day (today by default)."""
+    day = day or date.today().isoformat()
+    with closing(_connect(db_path)) as conn:
+        row = conn.execute("SELECT jobs FROM ai_usage WHERE day = ?", (day,)).fetchone()
+    return row["jobs"] if row else 0

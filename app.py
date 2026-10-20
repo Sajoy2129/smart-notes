@@ -23,6 +23,12 @@ from weeks import due_status, week_label
 
 HEADING_LENGTH = 60  # notes without a title use their first line, cut to this length
 MAX_PROJECT_NAME = 60
+# Longest note and question accepted. Each one goes to Claude, so this caps the cost
+# of a single call.
+MAX_NOTE_LENGTH = 10_000
+MAX_QUESTION_LENGTH = 500
+DEFAULT_AI_DAILY_LIMIT = 50
+AI_LIMIT_REACHED = "Daily AI limit reached, try again tomorrow."
 LOCAL_HOSTS = ["localhost", "127.0.0.1"]
 # Settings the app can't run safely without, and the environment variable for each.
 REQUIRED_SETTINGS = {"SECRET_KEY": "SECRET_KEY", "PASSWORD_HASH": "APP_PASSWORD_HASH"}
@@ -62,6 +68,8 @@ def load_settings(db_path=None):
         # Seconds to wait after a wrong password, so guessing is slow.
         "LOGIN_FAIL_DELAY": 1,
         "DATABASE": db_path or os.getenv("DATABASE_PATH", db.DEFAULT_DB_PATH),
+        # Most AI jobs (note analyses + answers) per day. A safety net for my API bill.
+        "AI_DAILY_LIMIT": read_ai_daily_limit(),
         "TRUSTED_HOSTS": hosts,
         # Online the site is HTTPS only, so the cookie must never travel over plain HTTP.
         # Locally it's http://, where a Secure cookie would be dropped by the browser.
@@ -69,6 +77,16 @@ def load_settings(db_path=None):
         # Browsers won't attach the cookie to form posts started by other websites.
         "SESSION_COOKIE_SAMESITE": "Lax",
     }
+
+
+def read_ai_daily_limit():
+    """AI_DAILY_LIMIT as a whole number (0 turns AI off), or the default if it's unset."""
+    text = os.getenv("AI_DAILY_LIMIT", "").strip()
+    if not text:
+        return DEFAULT_AI_DAILY_LIMIT
+    if not text.isdigit():
+        raise RuntimeError(f"AI_DAILY_LIMIT must be a whole number like 50, not {text!r}")
+    return int(text)
 
 
 def create_app(db_path=None, test_config=None):
@@ -205,12 +223,32 @@ def create_app(db_path=None, test_config=None):
         # Status 400 = bad request: the page is shown again with the error message.
         return (page, 400) if error else page
 
+    def note_body_error(body):
+        """What's wrong with a note's text, or None if it can be saved."""
+        if not body:
+            return "Please type a note first."
+        if len(body) > MAX_NOTE_LENGTH:
+            return (
+                f"That note is {len(body):,} characters long. The most is "
+                f"{MAX_NOTE_LENGTH:,}, so please shorten it or split it in two."
+            )
+        return None
+
+    def ai_job_allowed():
+        """Count one AI job for today, or return False if today's limit is used up."""
+        return db.use_ai_job(app.config["DATABASE"], app.config["AI_DAILY_LIMIT"])
+
     def save_note(project, body):
         """Save a note in a project, then let Claude analyse it. Return the note id."""
         db_path = app.config["DATABASE"]
         # Save first, so the note is kept even if the AI step fails.
         note_id = db.create_note(db_path, "", body, project_id=project["id"])
         note = db.get_note(db_path, note_id)
+
+        if not ai_job_allowed():
+            # Kept without AI fields, the same as when the API fails.
+            flash(f"Note saved ✓, without a summary. {AI_LIMIT_REACHED}", "error")
+            return note_id
 
         # Notes have no title, so the project name gives Claude the context instead.
         analysis = ai.analyze_note(project["name"], body, note["created_at"])
@@ -235,8 +273,9 @@ def create_app(db_path=None, test_config=None):
         if project is None:
             abort(404)
         body = request.form.get("body", "").strip()
-        if not body:
-            return render_notes_page(project, error="Please type a note first.")
+        error = note_body_error(body)
+        if error:
+            return render_notes_page(project, error=error, body=body)
         save_note(project, body)
         return redirect(url_for("view_project", project_id=project_id))
 
@@ -249,8 +288,9 @@ def create_app(db_path=None, test_config=None):
         body = request.form.get("body", "").strip()
         if project is None:
             return render_notes_page(error="Please choose a project for the note.", body=body)
-        if not body:
-            return render_notes_page(error="Please type a note first.")
+        error = note_body_error(body)
+        if error:
+            return render_notes_page(error=error, body=body)
         save_note(project, body)
         return redirect(url_for("index"))
 
@@ -275,6 +315,12 @@ def create_app(db_path=None, test_config=None):
             return render_template(
                 "ask.html", question="", error="Please type a question."
             ), 400
+        if len(question) > MAX_QUESTION_LENGTH:
+            return render_template(
+                "ask.html",
+                question=question,
+                error=f"Please keep questions under {MAX_QUESTION_LENGTH} characters.",
+            ), 400
 
         notes = db.list_notes(app.config["DATABASE"])
         matches = search.search_notes(question, notes)
@@ -283,6 +329,14 @@ def create_app(db_path=None, test_config=None):
             return render_template(
                 "ask.html", question=question, answer=ai.NOT_FOUND, sources=[]
             )
+
+        if not ai_job_allowed():
+            return render_template(
+                "ask.html",
+                question=question,
+                error=f"{AI_LIMIT_REACHED} These notes might help:",
+                sources=matches,
+            ), 429  # 429 = too many requests
 
         result = ai.answer_question(question, matches)
         if result is None:

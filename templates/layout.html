@@ -22,7 +22,7 @@
       </nav>
       {# Sends the question to the Ask page, which finds matching notes and asks Claude #}
       <form class="search" method="post" action="{{ url_for('ask') }}">
-        <input type="search" name="question" placeholder="Ask your notes…"
+        <input type="search" name="question" maxlength="500" placeholder="Ask your notes…"
                aria-label="Ask a question about your notes">
       </form>
       {# A form, not a link: logging out changes something, so it must be a POST #}
