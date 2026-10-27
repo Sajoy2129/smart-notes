@@ -1,0 +1,26 @@
+# systemd service for Smart Notes: starts gunicorn when the server boots and
+# restarts it if it crashes. Installed to /etc/systemd/system/ (see deploy/README.md).
+
+[Unit]
+Description=Smart Notes (gunicorn)
+# Wait until the network is up, so the app can reach the Claude API.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# Never run the app as root.
+User=ubuntu
+Group=ubuntu
+# The app's .env lives here; load_dotenv() reads it on start.
+WorkingDirectory=/home/ubuntu/smart-notes
+# 127.0.0.1: only Caddy, on the same server, can reach gunicorn. Same command as PLAN.md, section 2.
+ExecStart=/home/ubuntu/smart-notes/.venv/bin/gunicorn "app:create_app()" --bind 127.0.0.1:8000 --workers 1 --threads 4 --timeout 120
+Restart=on-failure
+RestartSec=5
+# Small safety settings: the app can't gain extra permissions, and gets its own /tmp.
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+# Start at boot.
+WantedBy=multi-user.target

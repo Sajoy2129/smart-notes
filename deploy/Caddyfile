@@ -1,0 +1,17 @@
+# Caddy config for Smart Notes. Installed to /etc/caddy/Caddyfile, with YOUR-HOSTNAME
+# replaced by the server's name, e.g. 3-120-45-67.sslip.io (see deploy/README.md).
+#
+# Because the site address is a name, Caddy gets a free HTTPS certificate from
+# Let's Encrypt, renews it, and redirects http:// to https:// by itself.
+
+YOUR-HOSTNAME {
+	# Pass every request to gunicorn. Caddy adds X-Forwarded-Proto: https,
+	# which the app trusts because BEHIND_PROXY=true.
+	reverse_proxy 127.0.0.1:8000
+
+	# Compress pages so they load faster.
+	encode gzip
+
+	# Tell browsers to use only HTTPS for this site for the next year.
+	header Strict-Transport-Security "max-age=31536000"
+}
