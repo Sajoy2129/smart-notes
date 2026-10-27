@@ -45,19 +45,20 @@ def load_settings(db_path=None):
     """Read the app's settings from environment variables.
 
     load_dotenv() first copies .env into the environment, but only for names that
-    aren't set already. On Render there is no .env, so the real variables are used.
+    aren't set already. The server has its own .env with the production values.
     """
     load_dotenv()
-    on_render = bool(os.getenv("RENDER"))  # Render sets RENDER=true on its servers
+    # True on the server, where Caddy (a proxy) handles HTTPS in front of the app.
+    behind_proxy = os.getenv("BEHIND_PROXY", "").strip().lower() == "true"
 
     # Only answer requests addressed to this app. Blocks "DNS rebinding", where another
     # website points its own name at our server to get past the Origin check below.
     hosts = list(LOCAL_HOSTS)
-    if os.getenv("RENDER_EXTERNAL_HOSTNAME"):  # e.g. smart-notes.onrender.com
-        hosts.append(os.getenv("RENDER_EXTERNAL_HOSTNAME"))
+    if os.getenv("PUBLIC_HOSTNAME"):  # e.g. 3-120-45-67.sslip.io
+        hosts.append(os.getenv("PUBLIC_HOSTNAME"))
 
     return {
-        "ON_RENDER": on_render,
+        "BEHIND_PROXY": behind_proxy,
         # Signs the session cookie (flash messages, and later the login). It must stay
         # the same across restarts and stay secret, so it can't be made up here.
         "SECRET_KEY": os.getenv("SECRET_KEY"),
@@ -73,7 +74,7 @@ def load_settings(db_path=None):
         "TRUSTED_HOSTS": hosts,
         # Online the site is HTTPS only, so the cookie must never travel over plain HTTP.
         # Locally it's http://, where a Secure cookie would be dropped by the browser.
-        "SESSION_COOKIE_SECURE": on_render,
+        "SESSION_COOKIE_SECURE": behind_proxy,
         # Browsers won't attach the cookie to form posts started by other websites.
         "SESSION_COOKIE_SAMESITE": "Lax",
     }
@@ -103,15 +104,15 @@ def create_app(db_path=None, test_config=None):
     for setting, env_name in REQUIRED_SETTINGS.items():
         if not app.config[setting]:
             raise RuntimeError(
-                f"{env_name} is not set. Add it to .env (locally) or to the Render "
-                f"environment. Make it with: {HOW_TO_MAKE[env_name]}"
+                f"{env_name} is not set. Add it to .env (on my Mac and on the "
+                f"server). Make it with: {HOW_TO_MAKE[env_name]}"
             )
 
-    if app.config["ON_RENDER"]:
-        # Render's proxy receives the HTTPS request and passes it on as plain HTTP,
+    if app.config["BEHIND_PROXY"]:
+        # Caddy receives the HTTPS request and passes it on as plain HTTP,
         # adding X-Forwarded-Proto: https. ProxyFix makes Flask trust that header, so
         # request.host_url starts with https:// and matches the browser's Origin.
-        # Only on Render: without a proxy in front, anyone could send that header.
+        # Only behind a proxy: without one in front, anyone could send that header.
         app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
 
     db.init_db(app.config["DATABASE"])

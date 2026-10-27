@@ -7,7 +7,7 @@ summary, pulls out action items, and adds tags. I can also ask questions
 across all my notes and get answers that show which notes they came from.
 
 ## Who uses it
-Just me. Version 1 ran only on my own Mac. It is now also online (Render),
+Just me. Version 1 ran only on my own Mac. It is now also online (AWS),
 so every page needs a login: one password, no usernames and no sign-up.
 - **Log in (/login)**: a password box. A wrong password waits 1 second, then
   says "Wrong password." After logging in I go back to the page I asked for,

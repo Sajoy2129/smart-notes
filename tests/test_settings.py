@@ -1,4 +1,4 @@
-"""Tests for settings read from environment variables (local and on Render).
+"""Tests for settings read from environment variables (on my Mac and on the server).
 
 monkeypatch.setenv() sets an environment variable for one test only.
 """
@@ -9,7 +9,7 @@ import db
 from app import create_app
 from tests.conftest import TEST_PASSWORD, TEST_PASSWORD_HASH
 
-RENDER_HOST = "smart-notes.onrender.com"
+SERVER_HOST = "3-120-45-67.sslip.io"
 
 
 @pytest.fixture
@@ -20,10 +20,10 @@ def local_env(monkeypatch):
 
 
 @pytest.fixture
-def on_render(local_env, monkeypatch):
-    """Pretend we're running on Render, with the variables Render sets itself."""
-    monkeypatch.setenv("RENDER", "true")
-    monkeypatch.setenv("RENDER_EXTERNAL_HOSTNAME", RENDER_HOST)
+def on_server(local_env, monkeypatch):
+    """Pretend we're running on the server, behind Caddy."""
+    monkeypatch.setenv("BEHIND_PROXY", "true")
+    monkeypatch.setenv("PUBLIC_HOSTNAME", SERVER_HOST)
 
 
 def make_project(app):
@@ -56,13 +56,13 @@ def test_secrets_come_from_the_environment(db_path, local_env):
 # ---------- Database path ----------
 
 def test_database_path_comes_from_the_environment(tmp_path, local_env, monkeypatch):
-    path = str(tmp_path / "render.db")
+    path = str(tmp_path / "server.db")
     monkeypatch.setenv("DATABASE_PATH", path)
 
     app = create_app()
 
     assert app.config["DATABASE"] == path
-    assert (tmp_path / "render.db").exists()  # init_db created it
+    assert (tmp_path / "server.db").exists()  # init_db created it
 
 
 # ---------- Production safety ----------
@@ -79,54 +79,61 @@ def test_locally_the_cookie_works_over_plain_http(db_path, local_env):
     assert app.config["SESSION_COOKIE_SAMESITE"] == "Lax"
 
 
-def test_on_render_the_cookie_is_https_only(db_path, on_render):
+def test_on_the_server_the_cookie_is_https_only(db_path, on_server):
     assert create_app(db_path).config["SESSION_COOKIE_SECURE"] is True
 
 
-# ---------- Render's address and HTTPS proxy ----------
+def test_behind_proxy_must_say_true(db_path, local_env, monkeypatch):
+    # Anything other than "true" (like "false" or "0") leaves the proxy settings off.
+    monkeypatch.setenv("BEHIND_PROXY", "false")
 
-def test_render_address_is_allowed(db_path, on_render):
+    assert create_app(db_path).config["SESSION_COOKIE_SECURE"] is False
+
+
+# ---------- The server's address and HTTPS proxy ----------
+
+def test_server_address_is_allowed(db_path, on_server):
     client = create_app(db_path).test_client()
 
-    response = client.get("/login", base_url=f"https://{RENDER_HOST}")
+    response = client.get("/login", base_url=f"https://{SERVER_HOST}")
 
     assert response.status_code == 200
 
 
-def test_render_address_is_not_allowed_elsewhere(db_path, local_env):
+def test_server_address_is_not_allowed_elsewhere(db_path, local_env):
     client = create_app(db_path).test_client()
 
-    response = client.get("/login", base_url=f"https://{RENDER_HOST}")
+    response = client.get("/login", base_url=f"https://{SERVER_HOST}")
 
     assert response.status_code == 400
 
 
-def render_post(client, path, data):
-    """A form post as Render delivers it: plain HTTP to the app, with
+def proxied_post(client, path, data):
+    """A form post as Caddy delivers it: plain HTTP to the app, with
     X-Forwarded-Proto: https, while the browser's Origin says https://."""
     return client.post(
         path,
         data=data,
-        base_url=f"http://{RENDER_HOST}",
-        headers={"Origin": f"https://{RENDER_HOST}", "X-Forwarded-Proto": "https"},
+        base_url=f"http://{SERVER_HOST}",
+        headers={"Origin": f"https://{SERVER_HOST}", "X-Forwarded-Proto": "https"},
     )
 
 
-def test_login_and_add_note_through_render_proxy(db_path, on_render):
+def test_login_and_add_note_through_the_proxy(db_path, on_server):
     # ProxyFix makes the https Origin match, so neither post is blocked with 403.
     app = create_app(db_path)
     project_id = make_project(app)
     client = app.test_client()
 
-    login = render_post(client, "/login", {"password": TEST_PASSWORD})
-    add = render_post(client, f"/project/{project_id}/notes", {"body": "Rang the client."})
+    login = proxied_post(client, "/login", {"password": TEST_PASSWORD})
+    add = proxied_post(client, f"/project/{project_id}/notes", {"body": "Rang the client."})
 
     assert login.status_code == 302
     assert add.status_code == 302
     assert len(db.list_notes(db_path)) == 1  # really saved, not sent to /login
 
 
-def test_forwarded_header_is_ignored_without_render(db_path, local_env):
+def test_forwarded_header_is_ignored_without_a_proxy(db_path, local_env):
     # Locally there's no proxy, so a client claiming "https" must not be believed.
     client = create_app(db_path).test_client()
 
