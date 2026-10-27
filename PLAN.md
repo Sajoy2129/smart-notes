@@ -1,106 +1,117 @@
-# Smart Notes – Deploy to Render Plan
+# Smart Notes – Deploy to AWS Plan
 
 The version 1 plan is now in `PLAN-v1.md`.
 
 ## Context
-Smart Notes runs on my Mac with `flask --app app run --debug`. I want it online through
-[Render](https://render.com), deployed from the GitHub repo `Sajoy2129/smart-notes`. Once it's on
-the internet, anyone can find the URL, so the app needs:
+Smart Notes runs on my Mac with `flask --app app run --debug`. I want it online on
+**AWS** (Amazon Web Services), on the free plan, deployed from the GitHub repo
+`Sajoy2129/smart-notes`. Once it's on the internet, anyone can find the URL, so the app needs:
 
 1. a **login**, so only I can read my notes,
 2. **production settings** (gunicorn, debug off, a real secret key),
-3. **environment variables** for secrets and settings instead of the `.env` file,
+3. **environment variables** for secrets and settings,
 4. a **usage limit**, so nobody (including a bug of mine) can run up my Claude API bill.
 
 Every step below ends with passing tests and one small git commit, the same way version 1 was
 built.
 
+History: the first plan used Render with a paid disk (option A, 2026-10-19), then free Render
+plus free Neon Postgres (option D, 2026-10-20). **On 2026-10-26 I switched to AWS.** Steps 0–4
+(settings, login, usage limit, gunicorn) were already done and still apply.
+
 ---
 
-## Decision first: where do the notes live?
-The notes are kept in a SQLite file. **On Render, a web service's disk is temporary.** It's wiped
-on every deploy and restart, so a SQLite file there would lose all notes each time I push code.
+## What "free" means on AWS
+AWS changed its free tier on **15 July 2025**:
 
-| Option | Cost | Code changes | Notes kept? |
+- **New accounts** choose a **Free plan**. It comes with about **$100 in credits**, plus up to
+  $100 more for finishing a few starter tasks (one is launching an EC2 server). Everything I use,
+  including the server, is paid for from these credits.
+- The Free plan lasts **6 months** or until the credits run out, whichever comes first. Then the
+  account is closed unless I **upgrade to a paid plan**. AWS can't charge my card while I'm on
+  the Free plan.
+- The old "750 free hours a month for 12 months" only applies to accounts made before
+  15 July 2025. Those 12 months have now ended, even for the oldest such accounts.
+
+So this deploy is **free for about 6 months**, not forever. After that I either pay (about
+$10–15 a month for this setup) or move the app somewhere else. I'll check the official
+[AWS Free Tier page](https://aws.amazon.com/free/) before signing up, because the details may
+change.
+
+---
+
+## Decision first: where do the app and the notes live?
+
+| Option | Cost on the Free plan | Code changes | Notes kept? |
 |---|---|---|---|
-| A. Paid instance + persistent disk | Starter instance + small disk (check Render's pricing page) | Only the database path | Yes |
-| B. Render Postgres database | Free tier expires; paid after | Rewrite `db.py` for Postgres | Yes |
-| C. Free instance, no disk | Free | None | **No**, wiped on each deploy |
-| **D. Free instance + free Neon Postgres** (chosen) | Free | Rewrite `db.py` for Postgres | Yes |
+| **A. One EC2 server, SQLite on its disk** (chosen) | Credits, about $10–15/month | Small: proxy settings only | Yes |
+| B. EC2 server + RDS Postgres database | Credits, roughly twice as fast | Rewrite `db.py` for Postgres | Yes |
+| C. Lambda + DynamoDB ("always free") | Free | Rewrite almost everything | Yes |
 
-~~Chosen: A~~ (2026-10-19). **Changed on 2026-10-20 to D**: A costs about $7/month.
+**Why A:** an **EC2 instance** is a virtual computer that I rent from AWS. Its disk (an **EBS
+volume**) is *persistent*: files stay there through restarts and deploys, unlike Render's free
+instance. So my SQLite database can stay exactly as it is. There is no Postgres rewrite and no
+copy script. I copy `smart_notes.db` to the server once.
 
-**Why D:** a free Render instance can't have a disk, and its files are wiped every time it
-sleeps (after 15 minutes without visitors), so SQLite there would lose my notes. Render's own
-free Postgres is deleted after 30 days. [Neon](https://neon.tech) runs Postgres with a free plan
-that doesn't expire. The web app runs on Render for free, and the notes live in Neon.
-Postgres is also worth learning: most production apps use it.
+**Why not C:** Lambda runs code only for the moment a request comes in, and has no disk that
+lasts. SQLite can't work there, and the app would need a new database and a new structure.
 
-Also good to know: the free instance sleeps after about 15 minutes without visitors, and the
-next visit waits about a minute while the app wakes up.
+**Trade-off:** with a server of my own, I'm also its administrator. I install updates, keep
+the app running, and take backups. That's good practice for an AI Engineer, and the steps below
+cover each part.
 
-### One Neon project, three databases
-One Neon project in **AWS Europe (Frankfurt)**. The Render service goes in Frankfurt too, so
-each query is quick.
+Unlike Render's free instance, an EC2 server never sleeps, so there's no slow first visit.
 
-| Database | Used by | Where its URL goes |
-|---|---|---|
-| `smart_notes` | the live app on Render | Render's Environment tab: `DATABASE_URL` |
-| `smart_notes_dev` | `flask run` on my Mac | `.env`: `DATABASE_URL` |
-| `smart_notes_test` | pytest (emptied before every test) | `.env`: `TEST_DATABASE_URL` |
+### The pieces
+```
+browser ──HTTPS──▶ Caddy (port 443) ──HTTP──▶ gunicorn (127.0.0.1:8000) ──▶ Flask app ──▶ SQLite file
+                   └──────────────────── one EC2 server (Ubuntu, Frankfurt) ───────────────────┘
+```
+- **Region:** `eu-central-1` (Frankfurt).
+- **Server:** an EC2 `t3.micro` (2 virtual CPUs, 1 GB memory) running **Ubuntu 24.04**.
+- **Elastic IP:** a fixed public IP address, so the address doesn't change when the server
+  restarts.
+- **Security group:** AWS's firewall. It decides which network ports are open:
+  - port 22 (SSH, logging in to the server): **only from my home IP address**,
+  - ports 80 and 443 (HTTP and HTTPS): from anywhere.
+- **Caddy:** a web server in front of gunicorn. It gets a free HTTPS certificate from
+  Let's Encrypt and renews it automatically.
+- **systemd:** Ubuntu's service manager. It starts gunicorn when the server boots and restarts
+  it if it crashes.
 
-Separate databases mean a test run can never touch real notes. The tests also refuse to run if
-the test database's name doesn't end in `_test`. The tests run over the internet, so a run takes
-a minute or two instead of a second. Installing Postgres on my Mac later would only change these
-URLs.
-
-A connection URL looks like `postgresql://user:password@host/dbname?sslmode=require`. It contains
-a password, so it's a **secret**: it goes only in `.env` and Render, never in git or logs.
-
-### What changes in the code
-- `db.py` uses **psycopg 3** (the Postgres driver) with a **connection pool**: a few connections
-  kept open and reused, instead of a new internet connection for every query.
-- SQL differences: `?` → `%s`, `AUTOINCREMENT` → `GENERATED BY DEFAULT AS IDENTITY`,
-  `lastrowid` → `RETURNING id`, `COLLATE NOCASE` → `LOWER(name)`.
-- `DATABASE_URL` replaces `DATABASE_PATH`, and the app refuses to start without it.
-- A one-time script, `copy_to_postgres.py`, copies my 10 notes and 4 projects from
-  `smart_notes.db` into Neon, keeping their ids. The SQLite file and `backups/` stay on my Mac.
+### A name for HTTPS
+HTTPS certificates are issued for a **domain name**, not a bare IP address. I'll start with a
+free name from [sslip.io](https://sslip.io). It turns an IP address into a name: the Elastic IP
+`3.120.45.67` becomes `3-120-45-67.sslip.io`. Later I can buy my own domain and only change the
+name in the Caddyfile and `PUBLIC_HOSTNAME`.
 
 ---
 
-## 1. Environment variables instead of `.env`
+## 1. Environment variables
 
 **What:** An *environment variable* is a named setting that the operating system gives a
 program when it starts, like `ANTHROPIC_API_KEY=sk-...`. Python reads one with `os.getenv("NAME")`.
 
-**Why:** `.env` is in `.gitignore` (correctly), so it never reaches GitHub, and Render never sees
-it. On Render I type each secret into the service's **Environment** tab. Render keeps it encrypted
-and passes it to the app on start. Secrets stay out of the code and out of git.
+**How it fits my code:** `load_dotenv()` in `create_app()` copies `.env` into environment
+variables, but only for names that aren't already set. `.env` is in `.gitignore` (correctly), so
+it never reaches GitHub. On the server I create a **separate `.env`** in the app folder, by
+hand, with production values. I lock it with `chmod 600 .env`, so only its owner can read it.
+The same code works in both places.
 
-**How it fits my code:** `load_dotenv()` copies `.env` into environment variables, but only for
-names that aren't already set. So:
-- On my Mac, `.env` exists, `load_dotenv()` fills in the values, and everything works as before.
-- On Render, there's no `.env`, `load_dotenv()` does nothing, and the real environment variables
-  are used.
-
-The same code works in both places. I'll move the `load_dotenv()` call from `ai.py` into
-`create_app()` so it loads every setting, not only the API key.
-
-**All settings the app will read:**
+**All settings the app reads:**
 
 | Variable | Example | Purpose |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | `sk-ant-...` | Claude API (already used) |
-| `SECRET_KEY` | 64 random hex characters | Signs the login cookie (see 2) |
-| `APP_PASSWORD_HASH` | `scrypt:32768:8:1$...` | My login password, hashed (see 3) |
-| `DATABASE_URL` | `postgresql://...neon.tech/smart_notes?sslmode=require` | The Neon database (a secret) |
-| `TEST_DATABASE_URL` | `postgresql://...neon.tech/smart_notes_test?sslmode=require` | Tests only, in my `.env` |
+| `ANTHROPIC_API_KEY` | `sk-ant-...` | Claude API. **A separate key for the server** (see 4) |
+| `SECRET_KEY` | 64 random hex characters | Signs the login cookie (see 2). A new one for the server |
+| `APP_PASSWORD_HASH` | `'scrypt:32768:8:1$...'` | My login password, hashed (see 3). Single-quoted |
+| `DATABASE_PATH` | `/home/ubuntu/data/smart_notes.db` | Where the SQLite file lives. Outside the git folder |
 | `AI_DAILY_LIMIT` | `50` | Max AI jobs per day (see 4) |
-| `PYTHON_VERSION` | `3.13.7` | Tells Render which Python to use (matches my `.venv`) |
+| `BEHIND_PROXY` | `true` | **New.** Caddy sits in front, so trust its HTTPS header (see 2) |
+| `PUBLIC_HOSTNAME` | `3-120-45-67.sslip.io` | **New.** The server's name, added to `TRUSTED_HOSTS` |
 
-Render also sets `RENDER_EXTERNAL_HOSTNAME` (e.g. `smart-notes.onrender.com`) automatically. I'll
-add it to `TRUSTED_HOSTS` so the app accepts requests sent to its own URL. Right now it only
-accepts `localhost`.
+`BEHIND_PROXY` and `PUBLIC_HOSTNAME` replace the Render-only `RENDER` and
+`RENDER_EXTERNAL_HOSTNAME`. On my Mac I leave both unset, so nothing changes locally.
 
 **Fail fast:** if `SECRET_KEY` or `APP_PASSWORD_HASH` is missing, the app refuses to start and
 prints a clear error. A loud crash at deploy time is better than a silently insecure app.
@@ -115,12 +126,13 @@ machine and isn't built to be secure or fast. **gunicorn** is a production *WSGI
 the standard way Python web apps talk to web servers. gunicorn handles many requests reliably
 and restarts a crashed worker.
 
-**How:** add `gunicorn` to `requirements.txt`. Render's start command is:
+**How:** gunicorn is already in `requirements.txt`. The systemd service runs:
 ```
-gunicorn "app:create_app()" --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120
+gunicorn "app:create_app()" --bind 127.0.0.1:8000 --workers 1 --threads 4 --timeout 120
 ```
 - `app:create_app()` means "in `app.py`, call `create_app()` to get the app".
-- `$PORT` is the port Render tells the app to listen on.
+- `127.0.0.1:8000`: gunicorn listens only *inside* the server. The internet can't reach it
+  directly, only through Caddy.
 - 1 worker with 4 threads: SQLite works best with a single process, and threads still let a few
   requests run at once.
 - `--timeout 120`: a Claude call can take a while (its own timeout is 60s, and it may retry once).
@@ -129,28 +141,23 @@ gunicorn "app:create_app()" --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeo
 **What:** debug mode shows full error pages with code, and its interactive debugger can **run
 Python typed into the browser**. Online, that would let anyone take over the server.
 
-**How:** gunicorn never turns on debug mode, and the start command doesn't include `--debug`.
-`--debug` stays in my local `flask run` command only. I'll add a test that checks
-`app.debug is False`.
+**How:** gunicorn never turns on debug mode, and the service command doesn't include `--debug`.
+`--debug` stays in my local `flask run` command only. A test checks `app.debug is False`.
 
 ### A real secret key
-**What:** Flask *signs* the session cookie with `SECRET_KEY`. Signing adds a code that only the
-holder of the key can produce. After I log in, the cookie says "logged in". Without the key, nobody
-can forge that cookie.
-
-**Why the current code must change:** `app.secret_key = os.urandom(32)` makes a new random key
-each time the app starts. That was fine for flash messages, but with a login, every restart or
-deploy would log me out. The key must stay the same and stay secret, so it comes from
-`SECRET_KEY`. To make one:
+Flask *signs* the session cookie with `SECRET_KEY`, so nobody without the key can forge a
+"logged in" cookie. It must stay the same across restarts and stay secret. To make one:
 ```
 python3 -c "import secrets; print(secrets.token_hex(32))"
 ```
 
-### HTTPS behind Render's proxy
-Render receives the HTTPS request and passes it to my app as plain HTTP. This middle layer is a
-*proxy*. My CSRF check compares the browser's `Origin` (`https://...`) with `request.host_url`
+### HTTPS behind Caddy
+Caddy receives the HTTPS request and passes it to gunicorn as plain HTTP. This middle layer is
+a *proxy*. My CSRF check compares the browser's `Origin` (`https://...`) with `request.host_url`
 (`http://...`). These won't match, so **every form would get a 403**. Werkzeug's `ProxyFix`
-makes the app trust Render's `X-Forwarded-Proto` header, so it knows the request was really HTTPS.
+makes the app trust Caddy's `X-Forwarded-Proto` header, so it knows the request was really
+HTTPS. It's switched on only when `BEHIND_PROXY=true`. Without a proxy in front, anyone could
+send that header.
 
 ### Cookie settings
 - `SESSION_COOKIE_SECURE=True`: the cookie is only sent over HTTPS.
@@ -159,7 +166,7 @@ makes the app trust Render's `X-Forwarded-Proto` header, so it knows the request
   to the Origin check.
 
 For local runs over `http://`, `SESSION_COOKIE_SECURE` must be off, or the browser drops the
-cookie. I'll turn it on only when running on Render (Render sets `RENDER=true`).
+cookie. It's turned on only when `BEHIND_PROXY=true`.
 
 ---
 
@@ -193,22 +200,22 @@ python3 -c "import getpass; from werkzeug.security import generate_password_hash
 the 1-second delay, guessing it would take forever.
 
 **Tests:** logged out → redirect to `/login`. Wrong password → stays out. Right password → in.
-Logout → out again. Static CSS loads without login. The `client` fixture in `conftest.py` will log
+Logout → out again. Static CSS loads without login. The `client` fixture in `conftest.py` logs
 in first, so the existing tests keep working.
 
 ---
 
-## 4. Usage limit (protecting my API credit)
+## 4. Usage limits (protecting my API credit and my AWS credits)
 
-The login already stops strangers. The limit is a second safety net, in case the password leaks,
-a bug loops, or I paste a huge note by accident. Three layers, from strongest to finest:
+The login already stops strangers. The limits are a second safety net, in case the password
+leaks, a bug loops, or I paste a huge note by accident.
 
 1. **Hard cap in the Anthropic Console (outside my code).** Set a monthly spend limit under
-   *Settings → Limits*, and create a **separate API key just for Render**. If something goes
+   *Settings → Limits*, and create a **separate API key just for the server**. If something goes
    wrong, I can revoke that one key without touching my local one. This is the only limit that
    still works if my code has a bug, so it's the most important.
 
-2. **Daily AI limit in the app.** A new table `ai_usage (day TEXT PRIMARY KEY, jobs INTEGER)`.
+2. **Daily AI limit in the app.** A table `ai_usage (day TEXT PRIMARY KEY, jobs INTEGER)`.
    Before each AI job (analysing a note or answering a question), `db.use_ai_job(limit)` adds 1 to
    today's count in a single SQL statement, but only if the count is below `AI_DAILY_LIMIT` (default
    50). It's stored in the database rather than a Python variable, so it survives restarts.
@@ -220,48 +227,94 @@ a bug loops, or I paste a huge note by accident. Three layers, from strongest to
 3. **Size limits.** Notes are capped at 10,000 characters and questions at 500, checked in the
    routes with a friendly error. This limits the cost of any single call.
 
-**Tests:** the limit is reached → the note is saved with no AI call (the fake client shows zero
-calls). The count resets on a new day. A note that's too long → error, nothing saved.
+4. **AWS budget alert.** In *Billing → Budgets*, create a budget that emails me when credit use
+   passes $5 in a month. Then a mistake, like a forgotten extra server, shows up early.
+
+---
+
+## 5. Running the server
+
+### Getting the code onto the server
+The GitHub repo is private, so the server needs permission to read it. I'll make a **deploy
+key**: an SSH key created on the server and added to the repo under *Settings → Deploy keys*,
+**read-only**. It can clone this one repo and nothing else, and can't push.
+
+### Updating the app later
+```
+ssh ubuntu@3-120-45-67.sslip.io
+cd smart-notes && git pull
+.venv/bin/pip install -r requirements.txt
+sudo systemctl restart smart-notes
+```
+This is what Render did for me automatically. Doing it by hand first shows what "deploying"
+really means. Automating it (e.g. GitHub Actions) can come later.
+
+### Backups
+The notes live on one disk on one server, so backups are now my job.
+- `deploy/backup.sh` runs every night from **cron** (Linux's task scheduler). It runs
+  `sqlite3 smart_notes.db ".backup '...'"` into `/home/ubuntu/data/backups/` and keeps the last
+  14 days.
+- Every week or so I copy the newest backup to my Mac with `scp`, so a broken server can't take
+  every copy with it.
+
+### Keeping the server safe
+- Log in with an **SSH key only** (Ubuntu on EC2 already turns password login off).
+- Turn on **automatic security updates** (`unattended-upgrades`, on by default in Ubuntu).
+- Never run the app as `root`. It runs as the `ubuntu` user.
+- Turn on **MFA** (a second login step, e.g. a phone code) for the AWS root account, and don't
+  use the root account day to day.
+
+### Files kept in git
+A new folder, `deploy/`, so the server setup is written down and reviewable:
+- `deploy/smart-notes.service`: the systemd service (runs the gunicorn command from section 2).
+- `deploy/Caddyfile`: the hostname, plus `reverse_proxy 127.0.0.1:8000`.
+- `deploy/backup.sh`: the nightly backup.
+- `deploy/README.md`: the setup commands from step 9, in order.
+
+None of these contain secrets. Secrets stay in the server's `.env`.
 
 ---
 
 ## Steps (one commit each)
-0. **Plan.** `PLAN-v1.md` (renamed) plus this `PLAN.md`. Add `.DS_Store` to `.gitignore`.
+0. **Plan.** `PLAN-v1.md` (renamed) plus this `PLAN.md`. Add `.DS_Store` to `.gitignore`. ✅
 1. **Settings from the environment.** `load_dotenv()` in `create_app()`, `SECRET_KEY`,
-   `DATABASE_PATH`, `RENDER_EXTERNAL_HOSTNAME` in `TRUSTED_HOSTS`, `ProxyFix`, cookie settings,
-   and fail fast on missing secrets. `create_app()` takes a test config so tests don't need real
-   secrets. Add `SECRET_KEY` and `APP_PASSWORD_HASH` to my local `.env`.
-2. **Login.** `/login`, `/logout`, the `before_request` check, `login.html`, a Log out button, a
-   logged-in test fixture and new tests. Update `SPEC.md`.
-3. **Usage limit.** `ai_usage` table, `db.use_ai_job()`, size limits, messages and tests.
-4. **gunicorn.** Add it to `requirements.txt`. Run it locally to check:
-   `gunicorn "app:create_app()" --bind 127.0.0.1:8000`.
-5. **Plan for Neon.** Record option D in this file.
-6. **Neon setup (in the Neon dashboard, no commit).** Create the project (Frankfurt) and the
-   three databases. Add `DATABASE_URL` (dev) and `TEST_DATABASE_URL` to my `.env`.
-7. **Postgres in the code.** `db.py`, the `DATABASE_URL` setting, `psycopg` and `psycopg-pool`
-   in `requirements.txt`, test fixtures. All tests pass against `smart_notes_test`.
-8. **Copy script.** `copy_to_postgres.py` and its test. Run it into `smart_notes_dev`, then into
-   `smart_notes`.
-9. **Deploy (in the Render dashboard, no commit).**
-   - Anthropic Console: create a new key for Render and set a monthly spend limit.
-   - Render: *New → Web Service → connect GitHub repo*, region **Frankfurt**, instance type
-     **Free**, no disk. Build command `pip install -r requirements.txt`. Start command as in
-     section 2.
-   - Add the environment variables from section 1 (`DATABASE_URL` = the live `smart_notes`).
-   - Deploy, then follow the checks below.
+   `DATABASE_PATH`, `TRUSTED_HOSTS`, `ProxyFix`, cookie settings, and fail fast on missing
+   secrets. ✅
+2. **Login.** `/login`, `/logout`, the `before_request` check, `login.html`, Log out button,
+   tests, `SPEC.md`. ✅
+3. **Usage limit.** `ai_usage` table, `db.use_ai_job()`, size limits, messages and tests. ✅
+4. **gunicorn.** Added to `requirements.txt`. ✅
+5. **Plan for AWS.** Rewrite this file for option A on AWS (this change).
+6. **AWS account (in the AWS console, no commit).** Sign up on the **Free plan**. Turn on MFA for
+   the root account. Create the $5 budget alert. Choose region Frankfurt (`eu-central-1`).
+7. **Settings not tied to Render.** Replace `RENDER` / `RENDER_EXTERNAL_HOSTNAME` with
+   `BEHIND_PROXY` / `PUBLIC_HOSTNAME` in `app.py`, and update the error message and tests.
+8. **Deploy files.** The `deploy/` folder from section 5.
+9. **Launch the server (in the AWS console and over SSH, no commit).**
+   - Anthropic Console: create a new key for the server and set a monthly spend limit.
+   - EC2: launch a `t3.micro` with Ubuntu 24.04, a new SSH key pair (the `.pem` file stays on
+     my Mac, `chmod 400`) and the security group from "The pieces". Attach an Elastic IP.
+   - On the server: install `python3-venv`, `sqlite3` and Caddy. Add the deploy key, clone the
+     repo, create `.venv`, `pip install -r requirements.txt`, and run `pytest` there.
+   - Write the server's `.env` (section 1) and `chmod 600` it.
+   - Back up `smart_notes.db` on my Mac, then `scp` it to `/home/ubuntu/data/`.
+   - Install the systemd service, the Caddyfile and the cron backup. Start everything.
+   - Follow the checks below.
 10. **Review.** Run `/security-review` (or the `code-reviewer` agent) on the changes and fix
     anything serious.
 
 ## Verification
-- `pytest -v` passes, still with no real API calls.
+- `pytest -v` passes on my Mac and on the server, still with no real API calls.
 - Local: `flask --app app run --debug` still works with `.env`.
-- On the Render URL:
+- On `https://<elastic-ip-with-dashes>.sslip.io`:
+  - The browser shows a valid HTTPS padlock, and `http://` redirects to `https://`.
   - A private browser window redirects to `/login`, and a wrong password is refused.
   - Log in, add a note, and the summary appears (the Origin check and HTTPS work).
-  - My 10 copied notes are there.
-  - Deploy again (e.g. an empty commit), and also wait 15+ minutes so the instance sleeps. I'm
-    still logged in and the notes are still there (the secret key and Neon work).
+  - My 10 old notes are there.
+  - `sudo reboot` the server. Afterwards the app comes back by itself, I'm still logged in, and
+    the notes are still there (systemd, the secret key and the disk work).
   - Temporarily set `AI_DAILY_LIMIT=0`. The note saves with the "limit reached" message.
   - Visit a URL that doesn't exist. It shows the normal 404 page, not a debug page.
+  - Port 8000 is **not** reachable from my Mac (only Caddy is public).
+  - The next morning, a backup file exists in `/home/ubuntu/data/backups/`.
 - `git log -p` contains no secrets.
