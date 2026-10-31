@@ -128,8 +128,25 @@ Commit: "Document the DATABASE_URL setting".
 
 ## Out of scope (possible later steps)
 - Copying existing notes from the live SQLite file into PostgreSQL (a one-off migration script).
+  **The script must reset PostgreSQL's id counters at the end.** Copying rows *with* their old ids
+  (so links like `/note/7` keep working) doesn't move the counter that hands out new ids. It still
+  starts at 1, so the first new project or note fails with `duplicate key value violates unique
+  constraint`. After copying, run this once per table (`projects`, then `notes`):
+  ```sql
+  SELECT setval(pg_get_serial_sequence('projects', 'id'), (SELECT MAX(id) FROM projects));
+  SELECT setval(pg_get_serial_sequence('notes', 'id'), (SELECT MAX(id) FROM notes));
+  ```
+  Checked on PostgreSQL 17 (2026-11-01): without it the next insert failed on id 1; with it the
+  next id was MAX + 1. (A table with no rows yet would make MAX(id) NULL; skip `setval` for it.)
+  Found in code review (finding 8).
 - Switching the live server to Postgres and a `pg_dump` backup script.
-- Connection pooling (reusing connections). This is a small single-user app, so one connection per request is fine.
+- **Connection pooling, only if pages feel slow on PostgreSQL.** Every `db.py` function opens its
+  own connection and closes it again, so one page makes 2–3 connections. That's instant for SQLite
+  (opening a file) but slower for PostgreSQL on another machine: each connection is a network
+  round trip plus encryption setup and login, and Neon may also need a moment to wake up.
+  A *pool* keeps a few connections open and lends them out (`psycopg_pool.ConnectionPool`). It
+  would only change `_open()`/`_connect()` in `db.py`. Not worth it for a single-user app until
+  it's measurably slow. Found in code review (finding 7).
 
 ---
 
