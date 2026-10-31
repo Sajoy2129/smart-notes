@@ -652,7 +652,7 @@ mac$ TEST_DATABASE_URL=postgresql://localhost/smart_notes_test pytest
 ```
 **Check:** the first line of the output says `database: PostgreSQL (smart_notes_test)`, and all
 tests pass. The tests delete every table before each test, so they refuse any database whose name
-doesn't contain `test`. Your real data can't be wiped by mistake.
+doesn't end with `_test`. Your real data can't be wiped by mistake.
 
 ### 16e. Troubleshooting PostgreSQL
 If the app can't reach PostgreSQL, the log (`journalctl -u smart-notes -n 50 --no-pager`)
@@ -661,8 +661,11 @@ message can contain the password. To see the details on your screen only (not in
 connect by hand with the same URL:
 ```
 server$ sudo apt install -y postgresql-client                # once: the psql command
-server$ psql "$(grep '^DATABASE_URL=' ~/smart-notes/.env | cut -d= -f2-)" -c "SELECT 1"
+server$ cd ~/smart-notes
+server$ psql "$(.venv/bin/python -c 'from dotenv import dotenv_values; print(dotenv_values(".env")["DATABASE_URL"])')" -c "SELECT 1"
 ```
+The long part inside `"$(...)"` reads `DATABASE_URL` from `.env` exactly the way the app does
+(quotes around the value included), and hands it to `psql`. It prints `1` if the connection works.
 | `psql` says | Likely cause | Fix |
 |---|---|---|
 | `connection refused` or `timeout` | PostgreSQL isn't running, or wrong `HOST`/port | Check the URL's host. For RDS, the security group must let the server in on port 5432 |

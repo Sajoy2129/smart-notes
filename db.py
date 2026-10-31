@@ -85,16 +85,17 @@ def _open(db_path):
             return psycopg.connect(db_path, row_factory=dict_row)
         except psycopg.Error as error:
             # PostgreSQL's own message can repeat parts of a URL it couldn't read,
-            # password included, and the server writes errors to its log. So we raise
-            # our own message instead. "from None" leaves the original out of the
-            # traceback; only its kind (e.g. OperationalError) is kept.
-            raise DatabaseConnectionError(
-                f"Could not connect to PostgreSQL ({type(error).__name__}). Check "
-                "DATABASE_URL: is the server running, are the host, user, password and "
-                "database name right, and are special characters in the password "
-                "encoded (DEPLOYMENT.md, 16a)? Details are hidden because they can "
-                "contain the password."
-            ) from None
+            # password included, and the server writes errors to its log. So keep
+            # only the error's kind (e.g. OperationalError) and drop the error itself.
+            kind = type(error).__name__
+        # Raised after the except block on purpose: raising inside it would attach
+        # the original error (and its password) to ours, hidden but still reachable.
+        raise DatabaseConnectionError(
+            f"Could not connect to PostgreSQL ({kind}). Check DATABASE_URL: is the "
+            "server running, are the host, user, password and database name right, "
+            "and are special characters in the password encoded (DEPLOYMENT.md, 16a)? "
+            "Details are hidden because they can contain the password."
+        )
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     return conn

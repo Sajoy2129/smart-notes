@@ -251,6 +251,10 @@ def test_connection_errors_never_show_the_password(bad_url):
     logged = "".join(traceback.format_exception(error.value))
     assert "SECRET" not in logged
     assert "DATABASE_URL" in logged  # still says what to check
+    # Not even hidden inside: error-tracking tools also read the error an error
+    # replaced (__context__) or was caused by (__cause__).
+    assert error.value.__context__ is None
+    assert error.value.__cause__ is None
 
 
 # ---------- SQL with a literal % ----------
