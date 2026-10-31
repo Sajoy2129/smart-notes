@@ -598,8 +598,14 @@ DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DATABASE
 - The URL contains a password, so it belongs in `.env` (never in git), and `.env` stays
   `chmod 600` (step 10). To check the names in `.env` without showing the values, use
   `cut -d= -f1 .env`.
-- If the password contains `@`, `:`, `/` or `#`, those characters break the URL. Write them as
-  `%40`, `%3A`, `%2F` and `%23`, or choose a password made only of letters and digits.
+- **Use a password made only of letters and digits.** Some characters have a special meaning
+  inside a URL, and an unencoded one breaks it. PostgreSQL's error can then show part of the
+  password. Make a safe one with `python3 -c "import secrets; print(secrets.token_hex(24))"`.
+  If you must keep a password with special characters, encode each one:
+
+  | Character | `%` | `@` | `:` | `/` | `#` | `?` | space |
+  |---|---|---|---|---|---|---|---|
+  | Write it as | `%25` | `%40` | `%3A` | `%2F` | `%23` | `%3F` | `%20` |
 
 ### 16b. Switch the server to PostgreSQL
 1. Make sure the PostgreSQL database exists and is empty. The app creates its tables itself when
@@ -641,9 +647,20 @@ tests pass. The tests delete every table before each test, so they refuse any da
 doesn't contain `test`. Your real data can't be wiped by mistake.
 
 ### 16e. Troubleshooting PostgreSQL
-| Error (in `journalctl -u smart-notes -n 50 --no-pager`) | Likely cause | Fix |
+If the app can't reach PostgreSQL, the log (`journalctl -u smart-notes -n 50 --no-pager`)
+says `Could not connect to PostgreSQL` and **hides the details**, because PostgreSQL's own
+message can contain the password. To see the details on your screen only (not in the log),
+connect by hand with the same URL:
+```
+server$ sudo apt install -y postgresql-client                # once: the psql command
+server$ psql "$(grep '^DATABASE_URL=' ~/smart-notes/.env | cut -d= -f2-)" -c "SELECT 1"
+```
+| `psql` says | Likely cause | Fix |
 |---|---|---|
-| `connection refused` or `no response` | PostgreSQL isn't running, or wrong `HOST`/port | Start it, or check the URL's host. For RDS, the security group must let the server in on port 5432 |
+| `connection refused` or `timeout` | PostgreSQL isn't running, or wrong `HOST`/port | Check the URL's host. For RDS, the security group must let the server in on port 5432 |
 | `password authentication failed` | Wrong `USER` or `PASSWORD` in the URL | Check them. Encode special characters (16a) |
+| `invalid percent-encoded token` or `failed to resolve host` | A special character in the password isn't encoded | Encode it (16a), or use a letters-and-digits password |
 | `database "..." does not exist` | The database wasn't created yet | Create it (`createdb NAME`, or in the RDS/Neon console) |
-| `No module named 'psycopg'` | The driver isn't installed | `.venv/bin/pip install -r requirements.txt` |
+
+If the log says `No module named 'psycopg'` instead, the driver isn't installed:
+`.venv/bin/pip install -r requirements.txt`.

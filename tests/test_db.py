@@ -1,4 +1,7 @@
 import sqlite3
+import traceback
+
+import pytest
 
 import db
 
@@ -228,3 +231,23 @@ def test_postgres_queries_get_percent_s_placeholders():
 
     assert conn.sql == "SELECT * FROM notes WHERE id = %s AND title = %s"
     assert conn.params == (1, "Hi")  # values still travel separately from the SQL
+
+
+# ---------- The DATABASE_URL password stays secret ----------
+
+@pytest.mark.parametrize(
+    "bad_url",
+    [
+        "postgresql://notes:ab%zzSECRET@localhost/smart_notes",  # "%" not encoded
+        "postgresql://notes:p@ssSECRET@localhost/smart_notes",  # "@" not encoded
+    ],
+)
+def test_connection_errors_never_show_the_password(bad_url):
+    # PostgreSQL's own error repeats parts of a URL it can't read, password included.
+    with pytest.raises(db.DatabaseConnectionError) as error:
+        db.init_db(bad_url)
+
+    # The full traceback is what the server writes to its log.
+    logged = "".join(traceback.format_exception(error.value))
+    assert "SECRET" not in logged
+    assert "DATABASE_URL" in logged  # still says what to check
