@@ -13,7 +13,7 @@ In the commands below, replace:
 1. Create a **new API key** just for the server, named `smart-notes-server`.
 2. Under *Settings → Limits*, check the monthly spend limit.
 
-## 2. Launch the server (AWS console, region Frankfurt)
+## 2. Launch the server (AWS console, region Stockholm `eu-north-1`)
 1. **EC2 → Launch instance**
    - Name: `smart-notes`
    - Image: **Ubuntu Server 24.04 LTS**
