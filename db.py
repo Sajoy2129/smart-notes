@@ -118,17 +118,23 @@ def _connect(db_path):
         conn.close()
 
 
-def _execute(conn, sql, params=()):
+def _execute(conn, sql, params=None):
     """Run one SQL statement with its ? placeholders filled in. Return the cursor.
 
-    Queries are written with SQLite's ? placeholders. PostgreSQL's driver uses %s
-    instead, so they're swapped here. That's safe because our SQL never contains a
-    literal ? or %. The values themselves are still passed separately, never pasted
-    into the SQL text, so they can't be read as SQL (no "SQL injection").
+    Queries are written once, with SQLite's ? placeholders. The values are passed
+    separately, never pasted into the SQL text, so they can't be read as SQL (no
+    "SQL injection").
+
+    PostgreSQL's driver marks placeholders with %s instead, and only when it is
+    given values. Then it reads every % as the start of a placeholder, so a literal
+    % (as in LIKE '%word%') must be written %%. Both are done here, so SQL can use %
+    freely. The one rule left: SQL with values mustn't contain a literal ?.
     """
     if isinstance(conn, sqlite3.Connection):
-        return conn.execute(sql, params)
-    return conn.execute(sql.replace("?", "%s"), params)
+        return conn.execute(sql, params or ())
+    if not params:
+        return conn.execute(sql)
+    return conn.execute(sql.replace("%", "%%").replace("?", "%s"), params)
 
 
 def _insert(conn, sql, params):

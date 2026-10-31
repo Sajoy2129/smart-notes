@@ -251,3 +251,21 @@ def test_connection_errors_never_show_the_password(bad_url):
     logged = "".join(traceback.format_exception(error.value))
     assert "SECRET" not in logged
     assert "DATABASE_URL" in logged  # still says what to check
+
+
+# ---------- SQL with a literal % ----------
+
+def test_sql_can_contain_a_percent_sign(db_path):
+    # PostgreSQL's driver reads % as the start of a placeholder, so a literal % in
+    # SQL (as in LIKE '%word%', a text search) needs care. Runs on both databases.
+    db.create_note(db_path, "", "Tiles arrive Friday.")
+    db.create_note(db_path, "", "Paint the hall.")
+
+    with db._connect(db_path) as conn:
+        with_values = db._execute(
+            conn, "SELECT body FROM notes WHERE body LIKE '%' || ? || '%'", ("Tiles",)
+        ).fetchall()
+        without_values = db._execute(conn, "SELECT '100%' AS text").fetchone()
+
+    assert [row["body"] for row in with_values] == ["Tiles arrive Friday."]
+    assert without_values["text"] == "100%"
