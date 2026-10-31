@@ -586,14 +586,22 @@ The live server has no `DATABASE_URL`, so it uses SQLite. **Nothing changes unti
 
 ### 16a. What a `DATABASE_URL` looks like
 ```
-DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DATABASE
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DATABASE?sslmode=require
 ```
 | Part | Meaning | Example |
 |---|---|---|
-| `USER`, `PASSWORD` | The database login (not your app password) | `notes`, `a-long-random-password` |
+| `USER`, `PASSWORD` | The database login (not your app password) | `notes`, `4f9c2a7e1b...` |
 | `HOST` | The database server's address | `localhost`, or the address RDS/Neon shows you |
 | `5432` | The port. 5432 is PostgreSQL's usual one | `5432` |
 | `DATABASE` | The database's name on that server | `smart_notes` |
+| `?sslmode=require` | Encrypt the connection, or refuse to connect | Always add it when the database is on another machine |
+
+- **Why `sslmode=require`:** without it, the connection *tries* encryption but quietly continues
+  unencrypted if the server doesn't offer it. Then your password and notes cross the internet as
+  plain text that anyone along the way could read. `require` refuses to connect unencrypted.
+  Neon's ready-made URLs already end with it. For RDS, add it yourself. (`verify-full` is
+  stricter still: it also checks the server's certificate, but needs the RDS certificate file
+  downloaded to the server.) For `localhost`, as in the tests, leave it out.
 
 - The URL contains a password, so it belongs in `.env` (never in git), and `.env` stays
   `chmod 600` (step 10). To check the names in `.env` without showing the values, use
