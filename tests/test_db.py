@@ -200,3 +200,31 @@ def test_ai_usage_table_is_added_to_an_old_database(tmp_path):
     db.init_db(path)
 
     assert db.use_ai_job(path, 5) is True
+
+
+# ---------- Choosing the database ----------
+
+def test_postgres_urls_are_recognised():
+    assert db.is_postgres("postgresql://user:pw@localhost:5432/smart_notes")
+    assert db.is_postgres("postgres://user:pw@localhost/smart_notes")
+
+
+def test_file_paths_are_sqlite(tmp_path):
+    assert not db.is_postgres("smart_notes.db")
+    assert not db.is_postgres(tmp_path / "test.db")  # a Path object, as tests pass it
+
+
+class FakePostgresConnection:
+    """Stands in for a PostgreSQL connection: it only records the SQL it is given."""
+
+    def execute(self, sql, params):
+        self.sql, self.params = sql, params
+
+
+def test_postgres_queries_get_percent_s_placeholders():
+    conn = FakePostgresConnection()
+
+    db._execute(conn, "SELECT * FROM notes WHERE id = ? AND title = ?", (1, "Hi"))
+
+    assert conn.sql == "SELECT * FROM notes WHERE id = %s AND title = %s"
+    assert conn.params == (1, "Hi")  # values still travel separately from the SQL
