@@ -113,9 +113,12 @@ Commit: "Use PostgreSQL when DATABASE_URL is set, SQLite otherwise".
 
 **Step 4: Run the whole test suite against a real PostgreSQL.** In `conftest.py`, if
 `TEST_DATABASE_URL` is set, the `db_path` fixture drops and re-creates the tables in that database
-for each test instead of making a temp `.db` file. Mark SQLite-only tests (the two upgrade tests and
-`test_backup.py`) with `pytest.mark.skipif(... TEST_DATABASE_URL ...)`. Without `TEST_DATABASE_URL`,
-tests run on SQLite as today, so no Postgres is needed day to day.
+for each test instead of making a temp `.db` file. Without `TEST_DATABASE_URL`, tests run on SQLite
+as today, so no Postgres is needed day to day.
+*Done differently:* no skip markers were needed. The SQLite-only tests (upgrade, backup,
+`DATABASE_PATH`) make their own temp `.db` files, so they keep testing SQLite in both runs.
+Added: a safety check refusing any database without "test" in its name (tests drop every table),
+and a pytest header line naming the database used.
 Commit: "Run the tests on PostgreSQL too when TEST_DATABASE_URL is set".
 
 **Step 5: Docs.** Short "Using PostgreSQL" section in `DEPLOYMENT.md`: what `DATABASE_URL`
@@ -132,7 +135,7 @@ Commit: "Document the DATABASE_URL setting".
 
 ## Verification
 1. `source .venv/bin/activate && pytest`: everything passes on SQLite (after every step).
-2. Local PostgreSQL, one time: `brew install postgresql@17 && brew services start postgresql@17 && createdb smart_notes_test`.
+2. Local PostgreSQL, one time (`run` starts it now but not at every login): `brew install postgresql@17 && brew services run postgresql@17 && createdb smart_notes_test`.
 3. `TEST_DATABASE_URL=postgresql://localhost/smart_notes_test pytest`: the same tests pass on Postgres.
 4. Manual: `createdb smart_notes`, then `DATABASE_URL=postgresql://localhost/smart_notes flask --app app run --debug`.
    Add a project and a note, complete it, ask a question. Then check the rows with

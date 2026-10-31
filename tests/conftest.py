@@ -1,7 +1,13 @@
 """Shared pytest fixtures.
 
 A fixture is a helper pytest runs before a test and passes in by name.
+
+Tests use a temporary SQLite file. To run them on PostgreSQL instead:
+    TEST_DATABASE_URL=postgresql://localhost/smart_notes_test pytest
 """
+
+import os
+from urllib.parse import urlparse
 
 import anthropic
 import pytest
@@ -28,6 +34,31 @@ APP_ENV_VARS = [
     "AI_DAILY_LIMIT", "DATABASE_URL",
 ]
 
+# Set it to run every test that uses db_path on PostgreSQL instead of SQLite.
+TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")
+
+
+def _test_database_name(url):
+    """The database name from the URL, refusing any name without "test" in it.
+
+    Every test deletes all the tables, so a real database must never be used here.
+    The error names only the database, never the URL, which holds the password.
+    """
+    name = urlparse(url).path.lstrip("/")
+    if "test" not in name:
+        raise pytest.UsageError(
+            f"TEST_DATABASE_URL points at the database {name!r}. Tests delete every "
+            "table, so its name must contain 'test', e.g. smart_notes_test."
+        )
+    return name
+
+
+def pytest_report_header():
+    """Shown at the top of the pytest output, so I can see which database was used."""
+    if TEST_DATABASE_URL:
+        return f"database: PostgreSQL ({_test_database_name(TEST_DATABASE_URL)})"
+    return "database: SQLite (a temporary file per test)"
+
 
 @pytest.fixture(autouse=True)
 def clean_environment(monkeypatch):
@@ -53,7 +84,17 @@ def no_real_api_calls(monkeypatch):
 
 @pytest.fixture
 def db_path(tmp_path):
-    """A fresh, empty database in a temporary folder for each test."""
+    """A fresh, empty database for each test.
+
+    SQLite: a new file in a temporary folder. PostgreSQL: the test database,
+    with its tables deleted and made again, so no test sees another's notes.
+    """
+    if TEST_DATABASE_URL:
+        _test_database_name(TEST_DATABASE_URL)  # stop if it isn't a test database
+        with db._connect(TEST_DATABASE_URL) as conn:
+            db._execute(conn, "DROP TABLE IF EXISTS notes, projects, ai_usage")
+        db.init_db(TEST_DATABASE_URL)
+        return TEST_DATABASE_URL
     path = tmp_path / "test.db"
     db.init_db(path)
     return path
