@@ -309,8 +309,11 @@ def list_projects(db_path):
             "FROM projects "
             "LEFT JOIN notes ON notes.project_id = projects.id AND notes.completed_at IS NULL "
             "GROUP BY projects.id "
-            # LOWER() sorts "apple" next to "Apple" and works in every database.
-            "ORDER BY LOWER(projects.name)",
+            # LOWER() sorts "apple" next to "Apple" and works in every database. Names
+            # that are then equal keep the order they were made in (projects.id); without
+            # it, PostgreSQL may return them in any order. One difference remains:
+            # SQLite only lowercases A-Z, so accented names (É) can sort differently.
+            "ORDER BY LOWER(projects.name), projects.id",
         ).fetchall()
     return [dict(row) for row in rows]
 

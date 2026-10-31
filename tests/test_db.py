@@ -293,3 +293,13 @@ def test_safety_check_refuses_real_databases(url):
 
     with pytest.raises(pytest.UsageError):
         _test_database_name(url)
+
+
+# ---------- Sorting projects ----------
+
+def test_projects_with_the_same_name_keep_the_order_they_were_made(db_path):
+    first = db.create_project(db_path, "harbour road")
+    second = db.create_project(db_path, "Harbour Road")
+    third = db.create_project(db_path, "HARBOUR ROAD")
+
+    assert [p["id"] for p in db.list_projects(db_path)] == [first, second, third]
