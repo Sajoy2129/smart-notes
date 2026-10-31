@@ -32,6 +32,9 @@ Rules:
 Otherwise null.
   - due_date_iso: that deadline as YYYY-MM-DD, worked out from the date the note \
 was written. Null if there is no deadline or it isn't a single day.
+  - "next <weekday>" means the first such day after the note was written, e.g. \
+"next Friday" in a note from Monday 19 Oct is Friday 23 Oct. If the note was written \
+on that weekday, it means one week later.
 - If there are no tasks, return an empty action_items list.
 - tags: 2-5 short lowercase tags about the topic, e.g. "delivery", "painting", "client"."""
 
