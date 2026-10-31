@@ -493,6 +493,10 @@ def test_ask_page_loads(client):
     assert b'name="question"' in response.data
 
 
+def test_ask_page_answers_head_requests(client):
+    assert client.head("/ask").status_code == 200
+
+
 def test_ask_empty_question_shows_error(client):
     response = client.post("/ask", data={"question": "  "})
 

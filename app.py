@@ -166,7 +166,7 @@ def create_app(db_path=None, test_config=None):
         next_url = safe_next_url(request.args.get("next"))
         if session.get("logged_in"):
             return redirect(next_url)
-        if request.method == "GET":
+        if request.method != "POST":  # GET, or HEAD (GET without the body)
             return render_template("login.html")
 
         password = request.form.get("password", "")
@@ -308,7 +308,7 @@ def create_app(db_path=None, test_config=None):
     # repeated by refreshes or link previews.
     @app.route("/ask", methods=["GET", "POST"])
     def ask():
-        if request.method == "GET":
+        if request.method != "POST":  # GET, or HEAD (GET without the body)
             return render_template("ask.html", question="")
 
         question = request.form.get("question", "").strip()

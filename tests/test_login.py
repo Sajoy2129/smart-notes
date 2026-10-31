@@ -35,6 +35,11 @@ def test_login_page_and_css_work_without_login(logged_out_client):
     assert logged_out_client.get("/static/app.css").status_code == 200
 
 
+def test_login_page_answers_head_requests(logged_out_client):
+    # HEAD = GET without the page body; `curl -I` and uptime checkers send it.
+    assert logged_out_client.head("/login").status_code == 200
+
+
 def test_login_page_hides_the_menu(logged_out_client):
     page = logged_out_client.get("/login").get_data(as_text=True)
 
