@@ -25,7 +25,7 @@ TEST_SETTINGS = {
 # depends on what's set on the machine running it.
 APP_ENV_VARS = [
     "SECRET_KEY", "APP_PASSWORD_HASH", "DATABASE_PATH", "BEHIND_PROXY", "PUBLIC_HOSTNAME",
-    "AI_DAILY_LIMIT",
+    "AI_DAILY_LIMIT", "DATABASE_URL",
 ]
 
 

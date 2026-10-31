@@ -68,7 +68,13 @@ def load_settings(db_path=None):
         "PERMANENT_SESSION_LIFETIME": timedelta(days=30),
         # Seconds to wait after a wrong password, so guessing is slow.
         "LOGIN_FAIL_DELAY": 1,
-        "DATABASE": db_path or os.getenv("DATABASE_PATH", db.DEFAULT_DB_PATH),
+        # PostgreSQL if DATABASE_URL is set, otherwise the SQLite file. The URL holds
+        # the database password, so never print or log this setting.
+        "DATABASE": (
+            db_path
+            or os.getenv("DATABASE_URL")
+            or os.getenv("DATABASE_PATH", db.DEFAULT_DB_PATH)
+        ),
         # Most AI jobs (note analyses + answers) per day. A safety net for my API bill.
         "AI_DAILY_LIMIT": read_ai_daily_limit(),
         "TRUSTED_HOSTS": hosts,

@@ -65,6 +65,48 @@ def test_database_path_comes_from_the_environment(tmp_path, local_env, monkeypat
     assert (tmp_path / "server.db").exists()  # init_db created it
 
 
+POSTGRES_URL = "postgresql://notes:secret@db.example.com:5432/smart_notes"
+
+
+@pytest.fixture
+def init_db_calls(monkeypatch):
+    """Replace db.init_db with a stand-in that records what it was given.
+
+    So these tests check which database the app picks without needing a real
+    PostgreSQL server to connect to.
+    """
+    calls = []
+    monkeypatch.setattr(db, "init_db", calls.append)
+    return calls
+
+
+def test_database_url_selects_postgres(local_env, monkeypatch, init_db_calls):
+    monkeypatch.setenv("DATABASE_URL", POSTGRES_URL)
+
+    app = create_app()
+
+    assert app.config["DATABASE"] == POSTGRES_URL
+    assert init_db_calls == [POSTGRES_URL]  # the tables are made in PostgreSQL
+
+
+def test_database_url_wins_over_database_path(local_env, monkeypatch, init_db_calls):
+    monkeypatch.setenv("DATABASE_URL", POSTGRES_URL)
+    monkeypatch.setenv("DATABASE_PATH", "/home/ubuntu/data/smart_notes.db")
+
+    app = create_app()
+
+    assert app.config["DATABASE"] == POSTGRES_URL
+
+
+def test_empty_database_url_means_sqlite(local_env, monkeypatch, init_db_calls):
+    # "DATABASE_URL=" with nothing after it in .env must not count as set.
+    monkeypatch.setenv("DATABASE_URL", "")
+
+    app = create_app()
+
+    assert app.config["DATABASE"] == db.DEFAULT_DB_PATH
+
+
 # ---------- Production safety ----------
 
 def test_debug_is_off(db_path, local_env):
