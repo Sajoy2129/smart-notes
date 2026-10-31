@@ -27,6 +27,7 @@ worked before moving on.
 13. [Nightly backups with cron](#13-nightly-backups-with-cron)
 14. [Final checks](#14-final-checks)
 15. [After launch: updates, backups, troubleshooting](#15-after-launch)
+16. [Optional: use PostgreSQL instead of SQLite](#16-optional-use-postgresql-instead-of-sqlite)
 
 ---
 
@@ -567,3 +568,82 @@ Backups that exist only on the server are lost if the server is. Copy them down 
 - The AWS credits on a new account run out after some months. After that, the server costs
   roughly $10–15 a month. The budget alert emails you before any real charges.
 - AI usage is capped by `AI_DAILY_LIMIT`, plus the spend limit in the Anthropic Console.
+
+---
+
+## 16. Optional: use PostgreSQL instead of SQLite
+
+Everything above uses **SQLite**: the notes live in one file, `~/data/smart_notes.db`. The app
+can also use **PostgreSQL**, a database server (for example AWS RDS, or Neon). Which one it uses
+depends on a single setting in `.env`:
+
+| `.env` has | The app uses |
+|---|---|
+| no `DATABASE_URL` line (or `DATABASE_URL=` with nothing after it) | SQLite, at `DATABASE_PATH` |
+| `DATABASE_URL=postgresql://...` | PostgreSQL. `DATABASE_PATH` is then ignored |
+
+The live server has no `DATABASE_URL`, so it uses SQLite. **Nothing changes until you add one.**
+
+### 16a. What a `DATABASE_URL` looks like
+```
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DATABASE
+```
+| Part | Meaning | Example |
+|---|---|---|
+| `USER`, `PASSWORD` | The database login (not your app password) | `notes`, `a-long-random-password` |
+| `HOST` | The database server's address | `localhost`, or the address RDS/Neon shows you |
+| `5432` | The port. 5432 is PostgreSQL's usual one | `5432` |
+| `DATABASE` | The database's name on that server | `smart_notes` |
+
+- The URL contains a password, so it belongs in `.env` (never in git), and `.env` stays
+  `chmod 600` (step 10). To check the names in `.env` without showing the values, use
+  `cut -d= -f1 .env`.
+- If the password contains `@`, `:`, `/` or `#`, those characters break the URL. Write them as
+  `%40`, `%3A`, `%2F` and `%23`, or choose a password made only of letters and digits.
+
+### 16b. Switch the server to PostgreSQL
+1. Make sure the PostgreSQL database exists and is empty. The app creates its tables itself when
+   it starts.
+2. Add the `DATABASE_URL` line to `~/smart-notes/.env` (`nano ~/smart-notes/.env`).
+3. Install the PostgreSQL driver (it's in `requirements.txt`) and restart:
+   ```
+   server$ cd ~/smart-notes && .venv/bin/pip install -r requirements.txt
+   server$ sudo systemctl restart smart-notes
+   server$ systemctl status smart-notes --no-pager
+   ```
+**Check:** the status says `active (running)`. Log in to the site. The project list is **empty**:
+
+> **Switching does not copy your notes.** The new PostgreSQL database starts empty. The SQLite
+> file stays exactly where it was. Copying the notes across needs a migration script, which
+> doesn't exist yet.
+
+**Switching back:** delete the `DATABASE_URL` line (or put `#` in front of it) and restart. The
+app uses the SQLite file again, as it was before the switch. Notes written while on PostgreSQL
+stay in PostgreSQL.
+
+### 16c. Backups on PostgreSQL
+`deploy/backup.sh` (step 13) only backs up the **SQLite file**. On PostgreSQL it keeps
+copying the old file, which no longer changes. Before relying on PostgreSQL:
+- Managed services (RDS, Neon) have their own automatic backups. Check that they are on.
+- Or make your own copy with `pg_dump`, PostgreSQL's backup command. It writes the whole database as
+  SQL you can load again later. A `pg_dump` version of `backup.sh` is still to be written.
+
+### 16d. Testing on PostgreSQL (on your Mac)
+The normal `pytest` always uses SQLite. To run the same tests on PostgreSQL:
+```
+mac$ brew install postgresql@17                                   # once
+mac$ brew services run postgresql@17                              # after each restart of the Mac
+mac$ /opt/homebrew/opt/postgresql@17/bin/createdb smart_notes_test  # once
+mac$ TEST_DATABASE_URL=postgresql://localhost/smart_notes_test pytest
+```
+**Check:** the first line of the output says `database: PostgreSQL (smart_notes_test)`, and all
+tests pass. The tests delete every table before each test, so they refuse any database whose name
+doesn't contain `test`. Your real data can't be wiped by mistake.
+
+### 16e. Troubleshooting PostgreSQL
+| Error (in `journalctl -u smart-notes -n 50 --no-pager`) | Likely cause | Fix |
+|---|---|---|
+| `connection refused` or `no response` | PostgreSQL isn't running, or wrong `HOST`/port | Start it, or check the URL's host. For RDS, the security group must let the server in on port 5432 |
+| `password authentication failed` | Wrong `USER` or `PASSWORD` in the URL | Check them. Encode special characters (16a) |
+| `database "..." does not exist` | The database wasn't created yet | Create it (`createdb NAME`, or in the RDS/Neon console) |
+| `No module named 'psycopg'` | The driver isn't installed | `.venv/bin/pip install -r requirements.txt` |
