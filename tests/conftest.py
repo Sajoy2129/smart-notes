@@ -7,7 +7,6 @@ Tests use a temporary SQLite file. To run them on PostgreSQL instead:
 """
 
 import os
-from urllib.parse import urlparse
 
 import anthropic
 import pytest
@@ -39,16 +38,20 @@ TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")
 
 
 def _test_database_name(url):
-    """The database name from the URL, refusing any name without "test" in it.
+    """The database the URL really connects to, refusing any not ending in "_test".
 
     Every test deletes all the tables, so a real database must never be used here.
-    The error names only the database, never the URL, which holds the password.
+    The name is read the way PostgreSQL reads it: a "?dbname=..." at the end of the
+    URL overrides the name before it. The error names only the database, never the
+    URL, which holds the password.
     """
-    name = urlparse(url).path.lstrip("/")
-    if "test" not in name:
+    from psycopg.conninfo import conninfo_to_dict
+
+    name = conninfo_to_dict(url).get("dbname", "")
+    if not name.endswith("_test"):
         raise pytest.UsageError(
             f"TEST_DATABASE_URL points at the database {name!r}. Tests delete every "
-            "table, so its name must contain 'test', e.g. smart_notes_test."
+            "table, so its name must end with '_test', e.g. smart_notes_test."
         )
     return name
 

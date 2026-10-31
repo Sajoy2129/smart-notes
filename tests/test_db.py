@@ -269,3 +269,27 @@ def test_sql_can_contain_a_percent_sign(db_path):
 
     assert [row["body"] for row in with_values] == ["Tiles arrive Friday."]
     assert without_values["text"] == "100%"
+
+
+# ---------- The safety check before tests drop tables ----------
+
+def test_safety_check_accepts_a_test_database():
+    from tests.conftest import _test_database_name
+
+    assert _test_database_name("postgresql://localhost/smart_notes_test") == "smart_notes_test"
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "postgresql://localhost/smart_notes",
+        # The name PostgreSQL really uses can hide in the part after "?".
+        "postgresql://localhost/smart_notes_test?dbname=smart_notes",
+        "postgresql://localhost/latest_notes",  # contains "test", but isn't a test database
+    ],
+)
+def test_safety_check_refuses_real_databases(url):
+    from tests.conftest import _test_database_name
+
+    with pytest.raises(pytest.UsageError):
+        _test_database_name(url)
