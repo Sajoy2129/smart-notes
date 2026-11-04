@@ -80,6 +80,32 @@ The `.env` file is mounted read-only instead of passed with `--env-file`, becaus
 pytest
 ```
 
+## Deployment
+
+The live app runs on one AWS EC2 server (Ubuntu), in a Docker container:
+
+```
+browser ── HTTPS ──> Caddy (on the server) ──> 127.0.0.1:8000 ──> smart-notes container
+                                                                    └─ ~/data/smart_notes.db (SQLite)
+```
+
+- **Caddy** handles HTTPS (free Let's Encrypt certificate) and passes requests to the app.
+- **The container** is built on the server and restarts by itself after a crash or reboot
+  (`--restart unless-stopped`). Only Caddy can reach it.
+- **The database** stays outside the container, in `~/data` on the server, and a cron job backs
+  it up every night at 03:30 (14 days kept).
+
+To update the server after pushing to GitHub:
+
+```bash
+ssh -i ~/.ssh/smart-notes.pem ubuntu@SERVER-IP
+cd ~/smart-notes && git pull
+sudo ~/smart-notes/deploy/run-container.sh   # rebuilds the image and swaps the container
+```
+
+The script ends with `OK: the app answers on 127.0.0.1:8000`. Logs: `sudo docker logs -f smart-notes`.
+How to go back to the old systemd service is in [deploy/README.md](deploy/README.md).
+
 ## Project layout
 
 | Path | What it is |
@@ -90,7 +116,7 @@ pytest
 | `search.py` | Keyword search for the Ask page |
 | `templates/`, `static/` | HTML pages and CSS |
 | `tests/` | pytest suite |
-| `deploy/` | Caddy, systemd and backup files for the AWS server |
+| `deploy/` | Server files: `run-container.sh` (Docker), Caddy, backup script, and the old systemd service |
 | `Dockerfile`, `.dockerignore` | Docker image for the app |
 | `compose.yaml`, `db.env.example` | Docker Compose: app + PostgreSQL |
 
@@ -98,4 +124,5 @@ pytest
 
 - [SPEC.md](SPEC.md): what the app does and how pages behave
 - [DESIGN.md](DESIGN.md): design notes
-- [DEPLOYMENT.md](DEPLOYMENT.md): step-by-step guide to hosting on AWS with HTTPS and nightly backups
+- [DEPLOYMENT.md](DEPLOYMENT.md): step-by-step guide to hosting on AWS with HTTPS and nightly backups (first setup, with systemd)
+- [deploy/README.md](deploy/README.md): server commands, including the switch to Docker, going back, and updating
