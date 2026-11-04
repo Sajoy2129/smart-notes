@@ -1,0 +1,48 @@
+# Docker Compose: Smart Notes + its own PostgreSQL database, started together.
+#   First time:  cp db.env.example db.env, then put one new password in both lines
+#   Start:       docker compose up --build      (Ctrl+C to stop)
+#   Background:  docker compose up -d --build   then  docker compose down
+# The live EC2 server doesn't use this; it runs SQLite under systemd.
+
+services:
+
+  # PostgreSQL 17 (same version as on the Mac), from the official image.
+  db:
+    image: postgres:17
+    # POSTGRES_PASSWORD comes from db.env (a secret file, kept out of git).
+    env_file: db.env
+    environment:
+      POSTGRES_DB: smart_notes
+      POSTGRES_USER: smart_notes
+    volumes:
+      # The database files live in a named volume, so notes survive `down`.
+      - pg-data:/var/lib/postgresql/data
+    # Compose calls this "healthy" once PostgreSQL really accepts connections.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smart_notes -d smart_notes"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+    # No "ports:" on purpose: only the app (on Compose's private network) can reach it.
+    restart: unless-stopped
+
+  # The app, built from our Dockerfile.
+  app:
+    build: .
+    # DATABASE_URL comes from db.env. It points at host "db": on Compose's network
+    # each service is reachable by its name ("localhost" would mean this container).
+    env_file: db.env
+    volumes:
+      # The usual secrets, lent read-only at run time, as with `docker run`.
+      - ./.env:/app/.env:ro
+    ports:
+      # Reachable only from this Mac, not from the local network.
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      db:
+        # Wait for the healthcheck, not just for the container to start.
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pg-data:

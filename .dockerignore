@@ -2,6 +2,7 @@
 
 # Secrets: anything copied into an image stays in it for good.
 .env
+db.env
 
 # Data: the real notes database and its backups. Data lives in a volume instead.
 # "**/" = in any folder (unlike .gitignore, a bare "*.db" only matches the top folder).
@@ -23,3 +24,5 @@ backups/
 tests/
 Dockerfile
 .dockerignore
+compose.yaml
+db.env.example
