@@ -1,0 +1,25 @@
+# Files Docker must NOT copy into the image (read by `docker build`).
+
+# Secrets: anything copied into an image stays in it for good.
+.env
+
+# Data: the real notes database and its backups. Data lives in a volume instead.
+# "**/" = in any folder (unlike .gitignore, a bare "*.db" only matches the top folder).
+**/*.db
+backups/
+
+# Mac-only virtual environment (wrong OS). The image installs its own packages.
+.venv
+
+# Git history: large, not needed to run the app, may hold old secrets.
+.git
+.gitignore
+
+# Caches and tooling not needed to run the app.
+**/__pycache__/
+.pytest_cache/
+**/.DS_Store
+.claude/
+tests/
+Dockerfile
+.dockerignore
