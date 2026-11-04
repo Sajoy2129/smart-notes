@@ -43,6 +43,37 @@ flask --app app run --debug
 
 Then open http://127.0.0.1:5000 and log in.
 
+## Run with Docker
+
+You need [Docker Desktop](https://www.docker.com/products/docker-desktop/) and the `.env` file from Setup. Secrets and data are given to the container when it runs; they are never built into the image.
+
+**App + PostgreSQL (Docker Compose).** First create `db.env`, the database password file (git-ignored):
+
+```bash
+cp db.env.example db.env
+python3 -c "import secrets; print(secrets.token_hex(24))"   # put this in BOTH lines of db.env
+```
+
+Then:
+
+```bash
+docker compose up -d --build   # start the database, then the app
+docker compose logs -f app     # follow the app's logs (Ctrl+C stops following)
+docker compose down            # stop; notes are kept in the pg-data volume
+```
+
+Open http://localhost:8000 and log in. The database has no port open on your machine; only the app can reach it. Use `docker compose exec db psql -U smart_notes` to look inside. `docker compose down -v` also **deletes the database**.
+
+**App only, with SQLite:**
+
+```bash
+docker build -t smart-notes .
+docker run --rm -p 127.0.0.1:8000:8000 \
+  -v "$PWD/.env:/app/.env:ro" -v smart-notes-data:/data smart-notes
+```
+
+The `.env` file is mounted read-only instead of passed with `--env-file`, because `--env-file` would keep the quote marks around `APP_PASSWORD_HASH` and the login would fail.
+
 ## Tests
 
 ```bash
@@ -60,6 +91,8 @@ pytest
 | `templates/`, `static/` | HTML pages and CSS |
 | `tests/` | pytest suite |
 | `deploy/` | Caddy, systemd and backup files for the AWS server |
+| `Dockerfile`, `.dockerignore` | Docker image for the app |
+| `compose.yaml`, `db.env.example` | Docker Compose: app + PostgreSQL |
 
 ## More documentation
 
