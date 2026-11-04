@@ -164,6 +164,53 @@ server$ sudo systemctl restart smart-notes
 ```
 If `deploy/smart-notes.service` or `deploy/Caddyfile` changed, copy them again (parts 9 and 10).
 
+## Later: run the app in Docker instead of systemd
+The app moves into a container; everything else stays: Caddy still proxies to
+`127.0.0.1:8000`, the notes stay in `~/data/smart_notes.db` (so the backup cron line keeps
+working), and `.env` stays in `~/smart-notes`. The `.venv` and the systemd service are kept,
+only switched off, so going back takes one minute.
+
+1. **Check** (changes nothing):
+   ```
+   server$ id                      # must show uid=1000(ubuntu), same as appuser in the image
+   server$ df -h / && free -h      # need ~1 GB free disk; memory for reference
+   server$ sqlite3 ~/data/smart_notes.db "SELECT count(*) FROM notes"   # note this number
+   ```
+2. **Back up** (kept forever: `backup.sh` only deletes `smart_notes-*.db` files):
+   ```
+   server$ sqlite3 ~/data/smart_notes.db ".backup '/home/ubuntu/data/backups/before-docker.db'"
+   ```
+3. **Install Docker** (Ubuntu's own package) and get the new code:
+   ```
+   server$ sudo apt update && sudo apt install -y docker.io
+   server$ sudo docker version
+   server$ cd ~/smart-notes && git pull
+   ```
+4. **Build first, while the old app still runs** (so the site is only down for seconds):
+   ```
+   server$ sudo docker build -t smart-notes ~/smart-notes
+   ```
+5. **Switch over:** stop systemd for good (`disable` = not at boot either), then start the container:
+   ```
+   server$ sudo systemctl disable --now smart-notes
+   server$ sudo ~/smart-notes/deploy/run-container.sh
+   ```
+   The script ends with `OK: the app answers on 127.0.0.1:8000`.
+6. **Check:** open `https://HOSTNAME`, log in, the note count matches step 1, add a note and
+   get an AI summary. Then `sudo reboot`, wait a minute, and check the site again.
+
+**Going back to systemd** if anything is wrong:
+```
+server$ sudo docker stop smart-notes && sudo docker rm smart-notes
+server$ sudo systemctl enable --now smart-notes
+```
+
+**Updating the app** in Docker (replaces the systemd routine above):
+```
+server$ cd ~/smart-notes && git pull
+server$ sudo ~/smart-notes/deploy/run-container.sh
+```
+
 ## Later: copy a backup to my Mac
 ```
 mac$ scp -i ~/.ssh/smart-notes.pem 'ubuntu@ELASTIC-IP:/home/ubuntu/data/backups/*' backups/
@@ -177,3 +224,7 @@ mac$ scp -i ~/.ssh/smart-notes.pem 'ubuntu@ELASTIC-IP:/home/ubuntu/data/backups/
 | `sudo systemctl restart smart-notes` | Restart the app |
 | `journalctl -u caddy -n 50` | Caddy's last 50 log lines (HTTPS problems) |
 | `df -h /` | How full is the disk? |
+| `sudo docker ps` | (Docker) Is the container running? |
+| `sudo docker logs -f smart-notes` | (Docker) Follow the app's log live (Ctrl+C to stop) |
+| `sudo docker restart smart-notes` | (Docker) Restart the app |
+| `sudo docker system df` | (Docker) Disk used by images; `sudo docker image prune` frees old ones |
