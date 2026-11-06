@@ -15,6 +15,7 @@ from werkzeug.security import generate_password_hash
 import ai
 import app as app_module
 import db
+import embeddings
 
 TEST_PASSWORD = "correct horse battery staple"
 # Real password hashes are slow on purpose, to make guessing expensive. Tests log in
@@ -30,7 +31,7 @@ TEST_SETTINGS = {
 # depends on what's set on the machine running it.
 APP_ENV_VARS = [
     "SECRET_KEY", "APP_PASSWORD_HASH", "DATABASE_PATH", "BEHIND_PROXY", "PUBLIC_HOSTNAME",
-    "AI_DAILY_LIMIT", "DATABASE_URL",
+    "AI_DAILY_LIMIT", "DATABASE_URL", "VOYAGE_API_KEY",
 ]
 
 # Set it to run every test that uses db_path on PostgreSQL instead of SQLite.
@@ -75,7 +76,7 @@ def clean_environment(monkeypatch):
 def no_real_api_calls(monkeypatch):
     """Runs before every test: make creating a real API client fail.
 
-    So no test can ever reach the real Claude API (costs money, needs internet).
+    So no test can ever reach the real Claude or Voyage API (costs money, needs internet).
     Code that isn't given a fake client behaves as if the API is unavailable.
     """
 
@@ -83,6 +84,12 @@ def no_real_api_calls(monkeypatch):
         raise anthropic.AnthropicError("real API calls are blocked in tests")
 
     monkeypatch.setattr(ai, "_make_client", blocked)
+
+    def embeddings_blocked():
+        raise embeddings.EmbeddingsUnavailable("real API calls are blocked in tests")
+
+    # The same for the Voyage embeddings API: tests fall back to keyword search.
+    monkeypatch.setattr(embeddings, "_make_client", embeddings_blocked)
 
 
 @pytest.fixture
