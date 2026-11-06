@@ -112,6 +112,8 @@ DATABASE_PATH=/home/ubuntu/data/smart_notes.db
 AI_DAILY_LIMIT=50
 BEHIND_PROXY=true
 PUBLIC_HOSTNAME=HOSTNAME
+# Optional: Ask finds notes by meaning (README, "Semantic search")
+VOYAGE_API_KEY=pa-...
 ```
 Save with Ctrl+O then Enter, and leave with Ctrl+X. Then make it readable only by me:
 ```

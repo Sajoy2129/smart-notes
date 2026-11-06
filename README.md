@@ -6,7 +6,7 @@ A small Flask web app for saving rough notes (meeting notes, site visit notes, p
 
 - Notes grouped into projects, with a sidebar showing open-note counts
 - AI summary, action items (task, owner, due date) and tags for every note
-- Ask page: keyword search finds the relevant notes, and Claude answers only from them
+- Ask page: hybrid search (keywords + meaning, via embeddings) finds the relevant notes, and Claude answers only from them
 - Single-password login (no usernames, no sign-up), 30-day session
 - Daily limit on AI calls to keep API costs under control
 - SQLite by default, with optional PostgreSQL via `DATABASE_URL`
@@ -33,7 +33,24 @@ Make the password hash with:
 python -c "import getpass; from werkzeug.security import generate_password_hash as h; print(h(getpass.getpass()))"
 ```
 
-Optional settings: `DATABASE_URL` or `DATABASE_PATH`, `AI_DAILY_LIMIT` (default 50), `BEHIND_PROXY`, `PUBLIC_HOSTNAME`.
+Optional settings: `VOYAGE_API_KEY` (semantic search, see below), `DATABASE_URL` or `DATABASE_PATH`, `AI_DAILY_LIMIT` (default 50), `BEHIND_PROXY`, `PUBLIC_HOSTNAME`.
+
+## Semantic search (optional)
+
+With a Voyage AI key, the Ask page also finds notes by **meaning**: "When does the wood arrive?" finds a note about a "timber delivery" even though no word matches. Each note is turned into an **embedding** (a list of 1024 numbers standing for its meaning) when it is saved, and questions are compared to them. Results are merged with the keyword results.
+
+1. Make a free key at https://dashboard.voyageai.com and add it to `.env`: `VOYAGE_API_KEY=pa-...`
+2. Give your existing notes a vector (safe to run again; only notes without one are sent):
+
+   ```bash
+   flask --app app embed-notes
+   ```
+
+   On the server (Docker): `sudo docker exec smart-notes flask --app app embed-notes`
+
+Without the key, or if Voyage is down, Ask uses keyword search only, as before. Embedding calls don't count toward `AI_DAILY_LIMIT`.
+
+**Privacy:** with the key set, note text (and your questions) are also sent to Voyage AI to make the embeddings.
 
 ## Run
 
@@ -113,7 +130,8 @@ How to go back to the old systemd service is in [deploy/README.md](deploy/README
 | `app.py` | Flask routes, settings and login |
 | `ai.py` | Claude API calls (note analysis and Ask) |
 | `db.py` | Database access |
-| `search.py` | Keyword search for the Ask page |
+| `search.py` | Keyword, semantic and hybrid search for the Ask page |
+| `embeddings.py` | Voyage AI embeddings (vectors) and cosine similarity |
 | `templates/`, `static/` | HTML pages and CSS |
 | `tests/` | pytest suite |
 | `deploy/` | Server files: `run-container.sh` (Docker), Caddy, backup script, and the old systemd service |

@@ -355,6 +355,8 @@ DATABASE_PATH=/home/ubuntu/data/smart_notes.db
 AI_DAILY_LIMIT=50
 BEHIND_PROXY=true
 PUBLIC_HOSTNAME=HOSTNAME
+# Optional: semantic search on the Ask page
+VOYAGE_API_KEY=pa-...
 ```
 
 | Setting | Meaning |
@@ -364,6 +366,7 @@ PUBLIC_HOSTNAME=HOSTNAME
 | `APP_PASSWORD_HASH` | From 10b. **Keep the single quotes**: the hash contains `$` signs. |
 | `DATABASE_PATH` | Where the database file is (step 9) |
 | `AI_DAILY_LIMIT` | The most AI calls per day, to cap costs |
+| `VOYAGE_API_KEY` | Optional. Lets Ask find notes by meaning (README, "Semantic search"). Leave it out for keyword search only. |
 | `BEHIND_PROXY` | Tells the app that Caddy is in front, so it trusts Caddy's "this was HTTPS" header |
 | `PUBLIC_HOSTNAME` | The site's name; the app refuses requests for other names |
 
