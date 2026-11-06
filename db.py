@@ -37,7 +37,9 @@ SCHEMA = [
         action_items TEXT,
         tags         TEXT,
         project_id   INTEGER REFERENCES projects(id),
-        completed_at TEXT  -- NULL while the note is open
+        completed_at TEXT,  -- NULL while the note is open
+        embedding       TEXT,  -- JSON list of numbers (a vector), NULL until made
+        embedding_model TEXT   -- which model made it; vectors of different models don't mix
     )
     """,
     # How many AI jobs (note analyses or answers) ran each day, for the daily limit.
@@ -53,6 +55,8 @@ SCHEMA = [
 NEW_NOTE_COLUMNS = {
     "project_id": "INTEGER REFERENCES projects(id)",
     "completed_at": "TEXT",
+    "embedding": "TEXT",
+    "embedding_model": "TEXT",
 }
 
 # How each database spells "a whole-number id that counts up by itself".
@@ -151,6 +155,7 @@ def _row_to_note(row):
     note = dict(row)
     note["action_items"] = json.loads(note["action_items"] or "[]")
     note["tags"] = json.loads(note["tags"] or "[]")
+    note["embedding"] = json.loads(note["embedding"]) if note["embedding"] else None
     return note
 
 
@@ -165,9 +170,12 @@ def init_db(db_path=DEFAULT_DB_PATH):
     with _connect(db_path) as conn:
         for statement in SCHEMA:
             _execute(conn, statement.format(id_column=id_column))
-        if not postgres:
-            # Only SQLite has databases from before these columns existed.
-            # PostgreSQL tables are always new, so they're created with every column.
+        if postgres:
+            # PostgreSQL databases exist from before the embedding columns, so add
+            # any that are missing. IF NOT EXISTS makes this safe to run every time.
+            for name, column_type in NEW_NOTE_COLUMNS.items():
+                _execute(conn, f"ALTER TABLE notes ADD COLUMN IF NOT EXISTS {name} {column_type}")
+        else:
             _add_missing_columns(conn)
         _move_loose_notes_to_general(conn)
 
@@ -233,6 +241,28 @@ def save_analysis(db_path, note_id, summary, action_items, tags):
             "UPDATE notes SET summary = ?, action_items = ?, tags = ? WHERE id = ?",
             (summary, json.dumps(action_items), json.dumps(tags), note_id),
         )
+
+
+def save_embedding(db_path, note_id, vector, model):
+    """Store a note's vector (as JSON text) and the name of the model that made it."""
+    with _connect(db_path) as conn:
+        _execute(
+            conn,
+            "UPDATE notes SET embedding = ?, embedding_model = ? WHERE id = ?",
+            (json.dumps(vector), model, note_id),
+        )
+
+
+def list_notes_needing_embedding(db_path, model):
+    """Notes with no vector yet, or with one made by a different model."""
+    with _connect(db_path) as conn:
+        rows = _execute(
+            conn,
+            "SELECT * FROM notes WHERE embedding IS NULL OR embedding_model IS NULL "
+            "OR embedding_model != ? ORDER BY id",
+            (model,),
+        ).fetchall()
+    return [_row_to_note(row) for row in rows]
 
 
 def get_note(db_path, note_id):

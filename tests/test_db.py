@@ -307,3 +307,50 @@ def test_projects_with_the_same_name_keep_the_order_they_were_made(db_path):
     third = db.create_project(db_path, "HARBOUR ROAD")
 
     assert [p["id"] for p in db.list_projects(db_path)] == [first, second, third]
+
+
+# ---------- Embeddings ----------
+
+def test_new_note_has_no_embedding(db_path):
+    note_id = db.create_note(db_path, "Call", "Rang.")
+
+    assert db.get_note(db_path, note_id)["embedding"] is None
+
+
+def test_save_and_load_embedding(db_path):
+    note_id = db.create_note(db_path, "Call", "Rang.")
+
+    db.save_embedding(db_path, note_id, [0.25, -0.5, 1.0], "model-a")
+
+    note = db.get_note(db_path, note_id)
+    assert note["embedding"] == [0.25, -0.5, 1.0]
+    assert note["embedding_model"] == "model-a"
+
+
+def test_notes_needing_embedding_are_missing_or_from_another_model(db_path):
+    missing = db.create_note(db_path, "No vector", "a")
+    current = db.create_note(db_path, "Current model", "b")
+    old = db.create_note(db_path, "Old model", "c")
+    db.save_embedding(db_path, current, [1.0], "model-b")
+    db.save_embedding(db_path, old, [1.0], "model-a")
+
+    needing = db.list_notes_needing_embedding(db_path, "model-b")
+
+    assert [note["id"] for note in needing] == [missing, old]
+
+
+def test_old_database_gets_embedding_columns(tmp_path):
+    path = tmp_path / "old.db"
+    with sqlite3.connect(path) as conn:
+        conn.execute(
+            "CREATE TABLE notes (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, "
+            "body TEXT NOT NULL, created_at TEXT NOT NULL, summary TEXT, "
+            "action_items TEXT, tags TEXT)"
+        )
+    conn.close()
+
+    db.init_db(path)
+    note_id = db.create_note(path, "Call", "Rang.")
+    db.save_embedding(path, note_id, [1.0, 2.0], "model-a")
+
+    assert db.get_note(path, note_id)["embedding"] == [1.0, 2.0]
