@@ -8,6 +8,7 @@ import os
 import time
 from datetime import datetime, timedelta
 
+import click
 from dotenv import load_dotenv
 from flask import (
     Flask, abort, flash, redirect, render_template, request, session, url_for
@@ -17,6 +18,7 @@ from werkzeug.security import check_password_hash
 
 import ai
 import db
+import embeddings
 import search
 from timeago import time_ago
 from weeks import due_status, week_label
@@ -263,8 +265,41 @@ def create_app(db_path=None, test_config=None):
             db.save_analysis(
                 db_path, note_id, analysis["summary"], analysis["action_items"], analysis["tags"]
             )
+        embed_note(note_id)
         flash("Note saved ✓")
         return note_id
+
+    def embed_note(note_id):
+        """Store a vector for the note, so Ask can find it by meaning.
+
+        Done after the AI analysis, so the summary and tags are part of it. If it
+        fails, the note simply has no vector; `flask --app app embed-notes` adds it later.
+        """
+        db_path = app.config["DATABASE"]
+        note = db.get_note(db_path, note_id)
+        vectors = embeddings.embed_texts([embeddings.note_text(note)], "document")
+        if vectors:
+            db.save_embedding(db_path, note_id, vectors[0], embeddings.MODEL)
+
+    @app.cli.command("embed-notes")
+    def embed_notes_command():
+        """Make vectors for notes that don't have one yet. Safe to run again."""
+        db_path = app.config["DATABASE"]
+        notes = db.list_notes_needing_embedding(db_path, embeddings.MODEL)
+        if not notes:
+            click.echo("Every note already has a vector.")
+            return
+        texts = [embeddings.note_text(note) for note in notes]
+        vectors = embeddings.embed_texts(texts, "document")
+        if vectors is None:
+            # Exit code 1 tells scripts (and me) that it failed.
+            raise click.ClickException(
+                "Couldn't make vectors. Is VOYAGE_API_KEY set in .env? "
+                "The log above shows the error type."
+            )
+        for note, vector in zip(notes, vectors):
+            db.save_embedding(db_path, note["id"], vector, embeddings.MODEL)
+        click.echo(f"Embedded {len(notes)} notes.")
 
     @app.route("/project/<int:project_id>")
     def view_project(project_id):
@@ -330,7 +365,9 @@ def create_app(db_path=None, test_config=None):
             ), 400
 
         notes = db.list_notes(app.config["DATABASE"])
-        matches = search.search_notes(question, notes)
+        # None if embeddings are off or failed: then it's plain keyword search.
+        query_vector = embeddings.embed_question(question)
+        matches = search.hybrid_search(question, notes, query_vector, embeddings.MODEL)
         if not matches:
             # Nothing matched: don't spend an API call, Claude has nothing to read.
             return render_template(
