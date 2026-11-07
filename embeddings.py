@@ -59,6 +59,16 @@ def _request_vectors(client, texts, input_type):
     return vectors
 
 
+def _describe_error(error):
+    """'HTTPStatusError 429' or just 'ConnectTimeout': enough to debug, nothing secret.
+
+    429 means "too many requests" (Voyage's rate limit), 401 a wrong API key.
+    """
+    if isinstance(error, httpx2.HTTPStatusError):
+        return f"{type(error).__name__} {error.response.status_code}"
+    return type(error).__name__
+
+
 def _worth_retrying(error):
     """Timeouts, network problems, rate limits and server errors may work next time.
 
@@ -110,8 +120,10 @@ def _embed_batch(client, texts, input_type):
         try:
             return _request_vectors(client, texts, input_type)
         except (httpx2.HTTPError, EmbeddingsUnavailable) as error:
-            # Log only the error type: never the API key or the note text.
-            logger.warning("Embedding attempt %d failed: %s", attempt, type(error).__name__)
+            # Log only the error type and HTTP status: never the API key or the note text.
+            logger.warning(
+                "Embedding attempt %d failed: %s", attempt, _describe_error(error)
+            )
             if not _worth_retrying(error):
                 break
     return None

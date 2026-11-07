@@ -131,3 +131,12 @@ def test_note_text_skips_empty_parts():
     note = {"title": "", "body": "Rang Sam.", "summary": None, "tags": []}
 
     assert embeddings.note_text(note) == "Rang Sam."
+
+
+def test_failure_log_shows_status_code_but_not_the_text(caplog):
+    client = fake_client([429, 429])
+
+    embeddings.embed_texts(["secret note text"], "document", client)
+
+    assert "HTTPStatusError 429" in caplog.text
+    assert "secret note text" not in caplog.text
